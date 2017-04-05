@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service name="userPerson" id="59502" IsTreeStruct ="false">
+	<include>include_common_type.xml()</include>
+	
+	<type name="TI_retCode" code="10001" class="int" desc="返回的状态码"/>
+    <type name="TS_retMsg" code="10002" class="string"  desc="返回的消息"/>
+	<type name="TS_user_id" code="1" class="string"  desc="用户id"/>
+    <type name="TS_user_flags" code="2" class="string" desc=""/>
+	<type name="TI_user_level" code="3" class="int" desc="" />
+	<type name="TS_name" code="4" class="string"  desc=""/>
+	<type name="TS_nickname" code="5" class="string" desc="昵称"/>
+	<type name="TS_headpic" code="6" class="string" desc="头像"		classex="json"/>
+	<type name="TI_sex" code="7" class="int" desc="性别" />
+	<type name="TI_count_follow" code="8" class="int" desc="关注数" />
+	<type name="TI_count_fans" code="9" class="int"  desc="粉丝数"/>
+	<type name="TS_count_follow_see" code="10" class="string" desc="关注数"/>
+	<type name="TS_count_fans_see" code="11" class="string" desc="粉丝数"/>
+	<type name="TI_need_best_notify" code="12" class="int" desc="是否需要提醒, 0不提醒,1提醒"/>
+	<type name="TI_page_size" code="13" class="int" desc="页块大小" />
+	<type name="TI_page_type" code="14" class="int" desc="1分页模式, 2瀑布模式" />
+	<type name="TI_page_index" code="15" class="int" desc="当前页下标" />
+	<type name="TI_page_lastid" code="16" class="int" desc="瀑布模式下,当前页最后一条记录下标" />
+	<type name="TI_return_page_lastid" code="17" class="int" desc="" />
+	<type name="TI_circle_id" code="18" class="int" desc="圈子id" />
+	<type name="TS_topic" code="19" class="string" desc="话题"/>
+	<type name="TS_page_lastid" code="20" class="string" desc="瀑布模式下,当前页最后一条记录id" />
+	<type name="TS_return_page_lastid" code="21" class="string" desc="" />
+	<type name="TS_resource_ids" code="22" class="string" desc="以逗号分隔的resource_id字符串列表" />
+	<type name="TI_user_status" code="23" class="int"  desc="用户状态"/>
+	<type name="TS_forbidden_until_time" code="24" class="string" desc="禁言截止时间" />
+	<type name="TS_sign_str" code="25" class="string" desc="" />
+	<type name="TS_home_page" code="26" class="string" desc="主页" />
+	<type name="TS_register_date" code="27" class="string" desc="注册日期" />
+	<type name="TS_create_time" code="28" class="string" desc="创建时间" />
+	<type name="TS_update_time" code="29" class="string" desc="修改日期" />
+	<type name="TI_is_media_user" code="30" class="int" desc="是否是自媒体用户" />
+	<type name="TI_issue_type" code="31" class="int" desc="" />
+	<type name="TS_home_bg_url" code="32" class="string" desc="主页背景图url" />
+	<type name="TI_count_resource" code="33" class="int" desc="发帖数" />
+	<type name="TI_count_comment" code="34" class="int" desc="评论数" />
+	<type name="TI_balance" code="35" class="int" desc="" />
+	<type name="TS_balance_see" code="36" class="string" desc="" />
+	<type name="TS_user_ids" code="37" class="string" desc="逗号分隔的user_id字符串列表" />
+	<type name="TI_total_page" code="38" class="int" desc="总页数" />
+	<type name="TI_count" code="39" class="int" desc="总数" />
+	<type name="TI_is_follow" code="40" class="int" desc="是否关注" />
+	<type name="TI_game_id" code="41" class="int" desc="游戏id" />
+	<type name="TI_role_type" code="42" class="int" desc="权限id" />
+	<type name="TS_friendUserID" code="43" class="string" desc="联系人userid" />
+	<type name="TI_systemUsersOnly" code="44" class="int" desc="是否只查系统用户" />
+	<type name="TS_unreadstats" class="string" code="45" classex="json"/>
+	<type name="TI_is_sign" class="int" code="46" desc="是否签到，0否，1是"/>
+	<type name="TI_is_consecutive_7" class="int" code="47" desc="是否连续7天，1=是，0=否"/>
+	<type name="TS_prize" class="string" code="48" desc="奖品信息"/>
+	<type name="TI_user_bonus_point" class="int" code="49" desc="用户积分"/>
+	<type name="TI_is_all_complete" class="int" code="50" desc="是否全部完成，1=完成，0=未完成"/>
+	<type name="TS_resource_id" class="string" code="51" desc="帖子id"/>
+	<type name="TI_lottery_time" class="int" code="52" desc="可抽奖次数"/>
+	<type name="TI_user_experience" code="53" class="int" desc="用户经验值" />
+	<type name="TI_user_experience_level_number" code="54" class="int" desc="用户经验等级" />
+	<type name="TS_user_experience_level_name" code="55" class="string" desc="用户经验等级名称" />
+	<type name="TI_user_experience_next_precent" code="56" class="int" desc="到达下一经验值的进度百分比" />
+	
+	<type name="TC_admin_list" class="struct" code="600" desc="管理员用户信息">
+		<field name="user_id" type="systemstring"/>
+		<field name="user_nickname" type="systemstring" />
+		<field name="headpic" type="systemstring" typeex="json"/>
+		<field name="is_follow" type="int" />
+	</type>
+
+	<type name="TC_comment_list" class="struct" code="601" desc="评论信息">
+		<field name="circle_ids" type="systemstring"	typeex="json"/>
+		<field name="circle_names" type="systemstring"	typeex="json"/>
+		<field name="resource_id" type="systemstring" />
+		<field name="comment_id" type="int"/>
+		<field name="resource_type" type="int"/>
+		<field name="resource_title" type="systemstring" />
+		<field name="content" type="systemstring" typeex="json"/>
+		<field name="create_time" type="systemstring" />
+		<field name="parent_id" type="int" />
+		<field name="parent_content" type="systemstring" typeex="json"/>
+		<field name="parent_user_id" type="systemstring" />
+		<field name="parent_user_nickname" type="systemstring" />
+		<field name="parent_user_headpic" type="systemstring" typeex="json"/>
+		<field name="count_like" type="int" />
+		<field name="count_like_see" type="systemstring" />
+		<field name="user_id" type="systemstring" />
+		<field name="user_nickname" type="systemstring" />
+		<field name="headpic" type="systemstring" typeex="json"/>
+		<field name="is_circlemaster" type="int" />
+		<field name="is_god" type="int" />
+		<field name="comment_user_id" type="systemstring" />
+		<field name="comment_user_nickname" type="systemstring" />
+		<field name="comment_headpic" type="systemstring" typeex="json"/>
+		<field name="inactive" type="int" />
+		<field name="parent_inactive" type="int" />
+	</type>
+	
+	<type name="TC_circle_list" class="struct" code="602" desc="圈子信息">
+		<field name="circle_id" type="int"/>
+		<field name="circle_name" type="systemstring" />
+		<field name="circle_logo" type="systemstring" />
+		<field name="circle_imgback"    type="systemstring"/>
+        <field name="circle_desc"       type="systemstring"/>
+        <field name="count_follow"      type="int"/>
+        <field name="count_follow_see"  type="systemstring"/>
+        <field name="count_post"        type="int"/>
+        <field name="count_post_see"    type="systemstring"/>
+        <field name="is_follow"         type="int"/>
+	</type>
+
+	<type name="TC_topic_list" class="struct" code="603" desc="话题信息">
+		<field name="topic_id" type="int"/>
+		<field name="topic_name" type="systemstring" />
+	</type>
+	
+	<type name="TC_resource_ugw" class="struct" code="604" desc="资源详情,包含点赞等动态数据">
+		<field name="resource_id" type="systemstring" />
+		<field name="circle_ids" type="systemstring" typeex="json"/>
+        <field name="status" type="int" />
+		<field name="title" type="systemstring" />
+		<field name="content_summary" type="systemstring" />
+		<field name="publish_time" type="systemstring" />
+		<field name="adopted_comment_id" type="int" />
+		<field name="ask_time" type="systemstring" />
+		<field name="adopted_time" type="systemstring" />
+		<field name="count_read" type="int" />
+		<field name="count_like" type="int" />
+		<field name="count_reply" type="int" />
+		<field name="count_read_see" type="systemstring" />
+		<field name="count_like_see" type="systemstring" />
+		<field name="count_reply_see" type="systemstring" />
+		<field name="amount" type="int" />
+		<field name="amount_type" type="int" />
+		<field name="amount_status" type="int" />
+		<field name="media_type" type="int" />
+		<field name="image_count" type="int" />
+		<field name="first_image" type="systemstring" typeex="json"/>
+		<field name="three_image" type="systemstring" typeex="json"/>
+		<field name="user_id" type="systemstring" />
+		<field name="user_nickname" type="systemstring" />
+		<field name="user_headpic" type="systemstring" typeex="json"/>
+		<field name="is_circlemaster" type="int" />
+		<field name="is_god" type="int" />
+		<field name="open_type" type="int" />
+		<field name="data_version" type="systemstring" />
+		<field name="resource_type" type="int" />
+		<field name="topic_list" type="systemstring" typeex="json"/>
+		<field name="topic_type" type="systemstring" typeex="json"/>
+		<field name="adopted_comment_user_id" type="systemstring" />
+		<field name="adopted_comment_nickname" type="systemstring" />
+		<field name="adopted_comment_content" type="systemstring" typeex="json"/>
+		<field name="is_best" type="int" />
+		<field name="circle_id_default" type="int" />
+		<field name="circle_name_default" type="systemstring" />
+		<field name="channel_id" type="int" />
+		<field name="channel_name" type="systemstring" />
+		<field name="topic_count_follow" type="int" />
+		<field name="topic_count_follow_see" type="systemstring" />
+		<field name="out_url" type="systemstring" />
+		<field name="last_update_time" type="systemstring" />
+		<field name="content_type" type="int" />
+	</type>
+	
+	<type name="TC_user_list" class="struct" code="605" desc="用户信息,包含动态数据">
+		<field name="user_id" type="systemstring"/>
+		<field name="user_nickname" type="systemstring" />
+		<field name="headpic" type="systemstring" typeex="json"/>
+		<field name="sex" type="int" />
+		<field name="is_follow" type="int" />
+		<field name="count_follow" type="int" />
+		<field name="count_fans" type="int" />
+		<field name="count_follow_see" type="systemstring" />
+		<field name="count_fans_see" type="systemstring" />
+	</type>
+	
+	<type name="TC_resource_active_ugw" class="struct" code="606" desc="帖子动态数据">
+        <field name="resource_id"     type="systemstring" />
+        <field name="count_read"      type="int" />
+        <field name="count_like"      type="int" />
+        <field name="count_reply"     type="int" />
+        <field name="count_read_see"  type="systemstring" />
+        <field name="count_like_see"  type="systemstring" />
+        <field name="count_reply_see" type="systemstring" />
+    </type>
+	
+	<type name="TC_user_active_ugw" class="struct" code="607" desc="用户动态数据">
+        <field name="user_id"     type="systemstring" />
+        <field name="count_follow" type="int" />
+		<field name="count_fans" type="int" />
+		<field name="count_follow_see" type="systemstring" />
+		<field name="count_fans_see" type="systemstring" />
+    </type>
+	
+	<type name="TC_user_receive_ugw" class="struct" code="608" desc="">
+		<field name="circle_ids" type="systemstring" typeex="json" desc="帖子所在圈子ID"/>
+		<field name="circle_names" type="systemstring" typeex="json" desc="帖子所在圈子名字" />
+		<field name="resource_id" type="systemstring" desc="帖子ID"/>
+		<field name="comment_id" type="int" desc="评论ID"/>
+		<field name="resource_type" type="int" desc="资源类型"/>
+		<field name="topic_list" type="systemstring" typeex="json" desc="帖子的话题列表"/>
+		<field name="topic_type" type="systemstring" typeex="json" desc="话题类型列表"/>
+		<field name="resource_title" type="systemstring" desc="帖子主题"/>
+		<field name="resource_content_summary" type="systemstring" desc="帖子内容摘要"/>
+		<field name="comment_content" type="systemstring" typeex="json" desc="评论内容"/>
+		<field name="comment_parent_content" type="systemstring" typeex="json" desc="父评论内容"/>
+		<field name="publish_time" type="systemstring" desc="发帖时间"/>
+		<field name="create_time" type="systemstring" desc="评论时间"/>
+		<field name="amount" type="int" desc="金额"/>
+		<field name="amount_type" type="int" desc="金额类型"/>
+		<field name="amount_status" type="int" desc="金额状态"/>
+		<field name="resource_first_image" type="systemstring" typeex="json" desc="帖子摘要首图"/>
+		<field name="resource_three_image" type="systemstring" typeex="json" desc="帖子摘要3图"/>
+		<field name="user_id" type="systemstring" desc="操作用户ID"/>
+		<field name="user_nickname" type="systemstring" desc="操作用户昵称"/>
+		<field name="headpic" type="systemstring" typeex="json" desc="操作用户头像"/>
+		<field name="is_circlemaster" type="int" desc="是否是圈主"/>
+		<field name="is_god" type="int" desc="是否是大神"/>
+		<field name="comment_inactive" type="int" desc="评论状态：0正常，1被删除"/>
+		<field name="comment_parent_inactive" type="int" desc="父评论状态：0正常，1被删除"/>
+	</type>
+	
+	<type name="TC_publicUserInfo_list" class="struct" code="609" desc="用户信息公用">
+		<field name="user_id" type="systemstring"/>
+		<field name="user_nickname" type="systemstring" />
+		<field name="headpic" type="systemstring" typeex="json"/>
+		<field name="gchat_user_id"       type="systemstring"/>
+	</type>
+	
+	<type name="TC_circle_admin_list" class="struct" code="610" desc="用户属性list">
+		<field name="circle_id" type="int"/>
+		<field name="circle_name" type="systemstring" />
+		<field name="role_type" type="int"/>
+	</type>
+
+	<type name="TC_task_info" class="struct" code="611" desc="任务信息">
+		<field name="task_name"       type="systemstring"/>
+		<field name="is_complete"     type="int" />
+		<field name="task_got_value"  type="int"/>
+	</type>
+
+	<type name="TC_sign_daily_info" class="struct" code="612" desc="连续签到信息">
+		<field name="task_name"       type="systemstring"  desc="数据枚举：day1=第一天，day2=第二天，以此类推"/>
+		<field name="is_complete"     type="int" />
+	</type>
+	
+	<type name="AC_resource_active_ugw" class="array" itemType="TC_resource_active_ugw"/>
+	<type name="AC_admin_list" class="array" itemType="TC_admin_list"/>
+	<type name="AC_comment_list" class="array" itemType="TC_comment_list"/>
+	<type name="AC_circle_list" class="array" itemType="TC_circle_list"/>
+	<type name="AC_topic_list" class="array" itemType="TC_topic_list"/>
+	<type name="AC_resource_ugw" class="array" itemType="TC_resource_ugw"/>
+	<type name="AC_user_list" class="array" itemType="TC_user_list"/>
+	<type name="AS_topic" class="array" itemType="TS_topic"/>
+	<type name="AC_user_active_ugw" class="array" itemType="TC_user_active_ugw"/>
+	<type name="AC_user_receive_ugw" class="array" itemType="TC_user_receive_ugw"/>
+	<type name="AC_publicUserInfo_list" class="array" itemType="TC_publicUserInfo_list"/>
+	<type name="AC_circle_admin_list" class="array" itemType="TC_circle_admin_list"/>
+	<type name="AC_task_info" class="array" itemType="TC_task_info"/>
+	<type name="AC_sign_daily_info" class="array" itemType="TC_sign_daily_info"/>
+	
+	<message name="getInfo" id="1" uri="api/userperson/getInfo" desc="查询个人信息">
+		<requestParameter>
+			<field name="user_id" type="TS_user_id" />
+			
+		</requestParameter>
+		<responseParameter>
+			<field name="bpeCode" 			type="TI_retCode"/>
+			<field name="bpeMsg" 			type="TS_retMsg"/>
+			<field name="nickname" type="TS_nickname" />
+			<field name="headpic" type="TS_headpic" />
+			<field name="sex" type="TI_sex" />
+			<field name="sign_str" type="TS_sign_str" />
+			<field name="home_page" type="TS_home_page" />
+			<field name="home_bg_url" 		type="TS_home_bg_url"  />
+			<field name="register_time" type="TS_register_date" />
+			<field name="user_flags" type="TS_user_flags" />
+			<field name="user_level" type="TI_user_level" />
+			<field name="balance" type="TI_balance" />
+			<field name="count_follow" type="TI_count_follow" />
+			<field name="count_fans" type="TI_count_fans" />
+			<field name="count_resource" type="TI_count_resource" />
+			<field name="count_comment" type="TI_count_comment" />
+			<field name="count_follow_see" type="TS_count_follow_see" />
+			<field name="count_fans_see" type="TS_count_fans_see" />
+			<field name="balance_see" type="TS_balance_see" />
+			<field name="is_follow" type="TI_is_follow" />
+			<field name="circle_admin" type="AC_circle_admin_list" />
+			<field name="user_bonus_point" type="TI_user_bonus_point" />
+		</responseParameter>
+	</message>
+	
+	
+</service>

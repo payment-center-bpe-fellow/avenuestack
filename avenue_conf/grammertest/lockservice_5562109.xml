@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service name="lockservice" id="5562109" IsTreeStruct ="false">
+	
+	<type name="key_type" class="string" code="1" />
+	<type name="value_type" class="int" code="2" />
+	<type name="pending_type" class="int" code="3" />
+
+    <message name="lock" id="1">
+		<requestParameter>
+			<field name="key" type="key_type"/>
+		</requestParameter>
+		<responseParameter>
+			<field name="value" type="value_type"/>
+		</responseParameter>
+	</message>
+
+    <message name="unlock" id="2">
+		<requestParameter>
+			<field name="key" type="key_type"/>
+		</requestParameter>
+		<responseParameter>
+		</responseParameter>
+	</message>
+
+    <message name="checkPending" id="3">
+		<requestParameter>
+			<field name="key" type="key_type"/>
+			<field name="value" type="value_type"/>
+		</requestParameter>
+		<responseParameter>
+			<field name="pending" type="pending_type"/>
+			<field name="value" type="value_type"/>
+		</responseParameter>
+	</message>
+
+    <message name="checkpoint" id="4">
+		<requestParameter>
+		</requestParameter>
+		<responseParameter>
+		</responseParameter>
+	</message>
+
+</service>
+

@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service name="PushServer" id="55900" IsTreeStruct="false">
+
+	<type name="appId_Type" class="int" code="1" />
+	<type name="areaId_Type" class="int" code="2" />
+	<type name="clickLog_Type" class="string" code="3" />
+	<type name="clientIp_Type" class="string" code="4" />
+	<type name="content_Type" class="string" code="5" />
+	<type name="data_Type" class="string" code="6" />
+	<type name="deviceId_Type" class="string" code="7" />
+	<type name="deviceToken_Type" class="string" code="8" />
+	<type name="displayLog_Type" class="string" code="9" />
+	<type name="extInfo_Type" class="string" code="10" />
+	<type name="failReason_Type" class="string" code="11" />
+	<type name="iplist_Type" class="string" code="12" />
+	<type name="keepSeconds_Type" class="int" code="13" />
+	<type name="memo_Type" class="string" code="14" />
+	<type name="messageType_Type" class="int" code="15" />
+	<type name="platform_Type" class="int" code="16" />
+	<type name="receivers_Type" class="string" code="17" />
+	<type name="receiverType_Type" class="int" code="18" />
+	<type name="resultCode_Type" class="int" code="19" />
+	<type name="roleName_Type" class="string" code="20" />
+	<type name="schedule_Type" class="int" code="21" />
+	<type name="scheduleTime_Type" class="string" code="22" />
+	<type name="sessionInfos_Type" class="string" code="23" />
+	<type name="socId_Type" class="string" code="24" />
+	<type name="styleId_Type" class="int" code="25" />
+	<type name="taskId_Type" class="string" code="26" />
+	<type name="title_Type" class="string" code="27" />
+	<type name="toPlatform_Type" class="string" code="28" />
+	<type name="trackNo_Type" class="string" code="29" />
+	<type name="userId_Type" class="string" code="30" />
+	<type name="excludeIp_Type" class="string" code="32" />
+	<type name="loginFlag_Type" class="int" code="33" />
+	<type name="count_type" class="int" code="34" />
+	<type name="rawData_type" class="string" code="35" isbytes="1"/>
+	<type name="dataType_type" class="int" code="36" />
+
+
+	<message name="setUserInfo" id="1">
+		<requestParameter>
+			<field name="appId" type="appId_Type" />
+			<field name="areaId" type="areaId_Type" />
+			<field name="userId" type="userId_Type" />
+			<field name="roleName" type="roleName_Type" />
+			<field name="extInfo" type="extInfo_Type" />
+			<field name="platform" type="platform_Type" />
+			<field name="deviceId" type="deviceId_Type" />
+			<field name="deviceToken" type="deviceToken_Type" />
+			<field name="socId" type="socId_Type" />
+			<field name="clientIp" type="clientIp_Type" />
+		</requestParameter>
+		<responseParameter>
+			<field name="resultCode" type="resultCode_Type" />
+		</responseParameter>
+	</message>
+
+	<message name="userDisconnected" id="2">
+		<requestParameter>
+			<field name="appId" type="appId_Type" />
+			<field name="deviceId" type="deviceId_Type" />
+			<field name="socId" type="socId_Type" />
+		</requestParameter>
+		<responseParameter>
+			<field name="resultCode" type="resultCode_Type" />
+		</responseParameter>
+	</message>
+
+	<message name="messageClicked" id="3">
+		<requestParameter>
+			<field name="appId" type="appId_Type" />
+			<field name="deviceId" type="deviceId_Type" />
+			<field name="displayLog" type="displayLog_Type" />
+			<field name="clickLog" type="clickLog_Type" />
+		</requestParameter>
+		<responseParameter>
+			<field name="resultCode" type="resultCode_Type" />
+		</responseParameter>
+	</message>
+
+	<message name="createTask" id="4">
+		<requestParameter>
+			<field name="trackNo" type="trackNo_Type" />
+			<field name="appId" type="appId_Type" />
+			<field name="messageType" type="messageType_Type" />
+			<field name="title" type="title_Type" />
+			<field name="content" type="content_Type" />
+			<field name="data" type="data_Type" />
+			<field name="styleId" type="styleId_Type" />
+			<field name="memo" type="memo_Type" />
+			<field name="toPlatform" type="toPlatform_Type" />
+			<field name="receiverType" type="receiverType_Type" />
+			<field name="receivers" type="receivers_Type" />
+			<field name="areaId" type="areaId_Type" />
+			<field name="schedule" type="schedule_Type" />
+			<field name="scheduleTime" type="scheduleTime_Type" />
+			<field name="keepSeconds" type="keepSeconds_Type" />
+			<field name="excludeIp" type="excludeIp_Type" />
+			<field name="loginFlag" type="loginFlag_Type" />
+		</requestParameter>
+		<responseParameter>
+			<field name="resultCode" type="resultCode_Type" />
+		</responseParameter>
+	</message>
+
+	<message name="processTask" id="5">
+		<requestParameter>
+			<field name="taskId" type="taskId_Type" />
+			<field name="appId" type="appId_Type" />
+		</requestParameter>
+		<responseParameter>
+			<field name="resultCode" type="resultCode_Type" />
+		</responseParameter>
+	</message>
+
+	<message name="queryOnlineIps" id="6">
+		<requestParameter>
+			<field name="appId" type="appId_Type" />
+			<field name="userId" type="userId_Type" />
+		</requestParameter>
+		<responseParameter>
+			<field name="resultCode" type="resultCode_Type" />
+			<field name="failReason" type="failReason_Type" />
+			<field name="iplist" type="iplist_Type" />
+		</responseParameter>
+	</message>
+
+	<message name="mcActivateSessions" id="7">
+		<requestParameter>
+			<field name="sessionInfos" type="sessionInfos_Type" />
+			<field name="socId" type="socId_Type" />
+			<field name="clientIp" type="clientIp_Type" />
+		</requestParameter>
+		<responseParameter>
+			<field name="resultCode" type="resultCode_Type" />
+			<field name="failReason" type="failReason_Type" />
+		</responseParameter>
+	</message>
+
+	<message name="userLogout" id="8">
+		<requestParameter>
+			<field name="appId" type="appId_Type" />
+			<field name="deviceId" type="deviceId_Type" />
+			<field name="userId" type="userId_Type" />
+		</requestParameter>
+		<responseParameter>
+			<field name="resultCode" type="resultCode_Type" />
+		</responseParameter>
+	</message>
+
+	<message name="getLoginAlertCount" id="9">
+		<requestParameter>
+		</requestParameter>
+		<responseParameter>
+			<field name="resultCode" type="resultCode_Type" />
+			<field name="count" type="count_Type" />
+		</responseParameter>
+	</message>
+
+	<message name="fishingQuery" id="10">
+		<requestParameter>
+		</requestParameter>
+		<responseParameter>
+			<field name="resultCode" type="resultCode_Type" />
+			<field name="count" type="count_Type" />
+		</responseParameter>
+	</message>
+	
+	<message name="simplepush_login" id="50">
+		<requestParameter>
+			<field name="deviceId" type="deviceId_Type" />
+			<field name="socId" type="socId_Type" />
+			<field name="clientIp" type="clientIp_Type" />
+		</requestParameter>
+		<responseParameter>
+		</responseParameter>
+	</message>
+	
+	<message name="simplepush_disconnected" id="51">
+		<requestParameter>
+			<field name="deviceId" type="deviceId_Type" />
+			<field name="socId" type="socId_Type" />
+		</requestParameter>
+		<responseParameter>
+		</responseParameter>
+	</message>
+	
+	<message name="simplepush_reportdata" id="52">
+		<requestParameter>
+			<field name="deviceId" type="deviceId_Type" />
+			<field name="socId" type="socId_Type" />
+			<field name="data" type="data_Type" />
+			<field name="rawData" type="rawData_Type"/>
+		</requestParameter>
+		<responseParameter>
+		</responseParameter>
+	</message>
+	
+	<message name="simplepush_pushdata" id="53">
+		<requestParameter>
+			<field name="deviceId" type="deviceId_Type" />
+			<field name="connId" type="socId_Type" />
+			<field name="dataType" type="dataType_Type" />
+			<field name="data" type="data_Type" />
+		</requestParameter>
+		<responseParameter>
+		</responseParameter>
+	</message>
+	
+</service>

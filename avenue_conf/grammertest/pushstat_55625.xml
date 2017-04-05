@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service  name="pushstat" id="55625"  IsTreeStruct ="false">
+
+    <type name="pushId_Type" class="string"    code="1"/> 
+    <type name="appId_Type" class="int"    code="2"/> 
+    <type name="gameId_Type" class="int"    code="3"/> 
+    <type name="pushType_Type" class="int"    code="4"/> 
+    <type name="title_Type" class="string"    code="5"/> 
+    <type name="createTime_Type" class="string"    code="6"/> 
+    <type name="updateTime_Type" class="string"    code="7"/> 
+    <type name="planned_Type" class="int"    code="8"/> 
+    <type name="taskSeq_Type" class="string"    code="9"/> 
+    <type name="pushDate_Type" class="string"    code="10"/> 
+    <type name="arrived_Type" class="int"    code="11"/> 
+    <type name="read_Type" class="int"    code="12"/> 
+    <type name="receiverGame_Type" class="int"    code="13" default="0"/> 
+    <type name="data_Type" class="string"    code="14"/> 
+
+    <message name="createpush" id="1">
+        <requestParameter>
+            <field name="pushId" type="pushId_type"/>
+            <field name="appId" type="appId_type"/>
+            <field name="gameId" type="gameId_type"/>
+            <field name="receiverGame" type="receiverGame_type"/>
+            <field name="pushType" type="pushType_type"/>
+            <field name="title" type="title_type"/>
+            <field name="data" type="data_type"/>
+            <field name="planned" type="planned_type"/>
+            <field name="createTime" type="createTime_type"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="updatearrived" id="3">
+        <requestParameter>
+            <field name="pushId" type="pushId_type"/>
+            <field name="appId" type="appId_type"/>
+            <field name="gameId" type="gameId_type"/>
+            <field name="receiverGame" type="receiverGame_type"/>
+            <field name="updateTime" type="updateTime_type"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="updateread" id="4">
+        <requestParameter>
+            <field name="pushId" type="pushId_type"/>
+            <field name="appId" type="appId_type"/>
+            <field name="gameId" type="gameId_type"/>
+            <field name="receiverGame" type="receiverGame_type"/>
+            <field name="updateTime" type="updateTime_type"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="savetodb" id="5">
+        <requestParameter>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="updatedb" id="6">
+        <requestParameter>
+            <field name="pushId" type="pushId_type"/>
+            <field name="pushDate" type="pushDate_type"/>		
+            <field name="appId" type="appId_type"/>
+            <field name="gameId" type="gameId_type"/>
+            <field name="receiverGame" type="receiverGame_type"/>
+            <field name="arrived" type="arrived_Type"/>				
+            <field name="read" type="read_Type"/>				
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+</service>
+
+

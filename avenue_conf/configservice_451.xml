@@ -1,0 +1,791 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service name="configservice" id="451" IsTreeStruct="false" revision="1" desc="配置服务">
+
+    <type name="return_message_Type"         class="string"  code="900" desc="错误描述"/>
+
+    <type name="cur_source_type"             class="string"  code="100" desc="当前用户的来源 1=web 2=api"/>
+    <type name="cur_userid_type"             class="string"  code="101" desc="当前用户的用户id"/>
+    <type name="cur_username_type"           class="string"  code="102" desc="当前用户的用户名"/>
+    <type name="cur_proj_id_type"            class="string"  code="103" desc="当前用户所在的项目id"/>
+    <type name="id_type"                     class="string"  code="104" desc="自动生成的编号"/>
+    <type name="ids_type"                    class="string"  code="105" desc="多个id,用逗号隔开"/>
+    <type name="script_ids_type"             class="string"  code="106" desc="脚本id,多个用逗号分隔"/>
+    <type name="md5_type"                    class="string"  code="107" desc="MD5值"/>
+    <type name="size_type"                   class="string"  code="108" desc="文件大小"/>
+    <type name="exec_count_type"             class="int"     code="109" desc="执行次数"/>
+    <type name="create_time_type"            class="string"  code="110"/>
+    <type name="create_user_type"            class="string"  code="111"/>
+    <type name="update_time_type"            class="string"  code="112"/>
+    <type name="update_user_type"            class="string"  code="113"/>
+    <type name="num_type"                    class="string"  code="114" desc="手工输入的编号，如区号，组号等"/>
+    <type name="name_type"                   class="string"  code="115" desc="名称"/>
+    <type name="remark_type"                 class="string"  code="116" desc="描述"/>
+    <type name="start_type"                  class="int"     code="117" desc="开始位置,从0开始"/>
+    <type name="page_size_type"              class="int"     code="118" desc="每页记录数，默认为20"/>
+    <type name="total_type"                  class="int"     code="119" desc="总记录数"/>
+    <type name="domain_type"                 class="string"  code="120" desc="域名"/>
+    <type name="api_key_type"                class="string"  code="121" desc="api_key"/>
+    <type name="secret_key_type"             class="string"  code="122" desc="秘钥"/>
+    <type name="keyword_type"                class="string"  code="123" desc="搜索关键字"/>
+    <type name="channel_ids_type"            class="string"  code="124" desc="渠道id,多个用逗号分隔"/>
+    <type name="field_type"                  class="string"  code="125" desc="字段名"/>
+    <type name="group_ids_type"              class="string"  code="126" desc="组id,多个用逗号隔开"/>
+    <type name="area_num_type"               class="string"  code="127" desc="内部区号"/>
+    <type name="area_name_type"              class="string"  code="128" desc="内部区名"/>
+    <type name="area_open_num_type"          class="string"  code="129" desc="外部区号"/>
+    <type name="area_open_name_type"         class="string"  code="130" desc="外部区名"/>
+    <type name="group_num_type"              class="string"  code="131" desc="内部组号"/>
+    <type name="group_name_type"             class="string"  code="132" desc="内部组名"/>
+    <type name="group_open_num_type"         class="string"  code="133" desc="外部组号"/>
+    <type name="group_open_name_type"        class="string"  code="134" desc="外部组名"/>
+    <type name="startup_script_type"         class="string"  code="135" desc="启动脚本"/>
+    <type name="stop_script_type"            class="string"  code="136" desc="停止脚本"/>
+    <type name="startup_order_type"          class="int"     code="137" desc="启动顺序"/>
+    <type name="stop_order_type"             class="int"     code="138" desc="停止顺序"/>
+    <type name="upgrade_package_type"        class="string"  code="139" desc="更新包源路径"/>
+    <type name="upgrade_path_type"           class="string"  code="140" desc="更新包目标路径"/>
+    <type name="order_type"                  class="int"     code="141" desc="顺序号"/>
+    <type name="device_id_type"              class="string"  code="142" desc="设备id"/>
+    <type name="device_ids_type"             class="string"  code="143" desc="设备id,多个用逗号隔开"/>
+    <type name="device_bindinfo_type"        class="string"  code="144" desc=" json对象数组，key为：area_num,group_num,role_name,path"/>
+    <type name="state_type"                  class="string"  code="145" desc=" 状态, 1=未安装 2=已安装未连接 3=已连接"/>
+    <type name="bind_type"                   class="string"  code="146" desc=" 是否绑定 0=未绑定 1=已绑定"/>
+    <type name="value_type"                  class="string"  code="147" desc=" 变量值"/>
+    <type name="scope_type"                  class="string"  code="148" desc="关联范围 1=全局 2=区组 3=主机"/>
+    <type name="scope_values_type"           class="string"  code="149" desc="关联的组或主机，组格式为 组id, 多个用逗号隔开; 主机格式为device_id, 多个用逗号隔开"/>
+    <type name="ip_type"                     class="string"  code="150"/>
+    <type name="port_type"                   class="string"  code="151"/>
+    <type name="type_type"                   class="string"  code="152"/>
+    <type name="ips_type"                    class="string"  code="153" desc="json对象数组，key为type(1=内网，2=外网),ip"/>
+    <type name="area_nums_type"              class="string"  code="154" desc="选定的区num,多个用逗号隔开,示例：1,2,3"/>
+    <type name="group_nums_type"             class="string"  code="155" desc="选定的区num-组num,示例：1-1,1-2,2-10"/>
+
+    <type name="channelinfo_type"            class="struct"  code="800">
+        <field name="id"                     type="systemstring"/>
+        <field name="num"                    type="systemstring"/>
+        <field name="name"                   type="systemstring"/>
+        <field name="remark"                 type="systemstring"/>
+    </type>
+    <type name="channelinfo_array_type"      class="array"   itemType="channelinfo_type"/>
+
+    <type name="groupinfo_type"              class="struct"  code="801">
+        <field name="id"                     type="systemstring"/>
+        <field name="area_open_num"          type="systemstring"/>
+        <field name="area_open_name"         type="systemstring"/>
+        <field name="group_open_num"         type="systemstring"/>
+        <field name="group_open_name"        type="systemstring"/>
+        <field name="channels"               type="systemstring" desc="json对象，key动态，是所有的渠道id，值为渠道名，示例：{&quot;渠道id&quot;:&quot;渠道名称&quot;,...}"/>
+        <field name="area_num"               type="systemstring"/>
+        <field name="area_name"              type="systemstring"/>
+        <field name="group_num"              type="systemstring"/>
+        <field name="group_name"             type="systemstring"/>
+        <field name="remark"                 type="systemstring"/>
+    </type>
+    <type name="groupinfo_array_type"        class="array"   itemType="groupinfo_type"/>
+
+    <type name="grouptreeinfo_type"          class="struct"  code="802">
+        <field name="area_num"               type="systemstring"/>
+        <field name="area_name"              type="systemstring"/>
+        <field name="group_num"              type="systemstring"/>
+        <field name="group_name"             type="systemstring"/>
+    </type>
+    <type name="grouptreeinfo_array_type"    class="array"   itemType="grouptreeinfo_type"/>
+
+    <type name="roleinfo_type"               class="struct"  code="803">
+        <field name="id"                     type="systemstring"/>
+        <field name="name"                   type="systemstring" desc="角色名"/>
+        <field name="startup_script"         type="systemstring" desc="启动脚本"/>
+        <field name="startup_order"          type="systemstring" desc="启动顺序"/>
+        <field name="stop_script"            type="systemstring" desc="停止脚本"/>
+        <field name="stop_order"             type="systemstring" desc="停止顺序"/>
+        <field name="upgrade_package"        type="systemstring" desc="升级源包名"/>
+        <field name="upgrade_path"           type="systemstring" desc="升级包目标路径"/>
+        <field name="remark"                 type="systemstring" desc="备注"/>
+    </type>
+    <type name="roleinfo_array_type"         class="array"   itemType="roleinfo_type"/>
+
+    <type name="deviceinfo_type"             class="struct"  code="804">
+        <field name="id"                     type="systemstring"/>
+        <field name="device_id"              type="systemstring" desc="此值要关联到外部系统中的设备"/>
+        <field name="device_state"           type="systemstring" desc=" 设备状态 1=未安装 2=已安装未连接 3=已连接"/>
+        <field name="ips"                    type="systemstring"/>
+        <field name="binds"                  type="systemstring" desc="json对象数组,key为role_name,path,area_name,group_name"/>
+        <field name="remark"                 type="systemstring"/>
+    </type>
+    <type name="deviceinfo_array_type"       class="array"   itemType="deviceinfo_type"/>
+
+    <type name="varinfo_type"                class="struct"  code="805">
+        <field name="id"                     type="systemstring"/>
+        <field name="name"                   type="systemstring"/>
+        <field name="value"                  type="systemstring" desc="变量值"/>
+        <field name="scope"                  type="systemstring" desc="关联范围 1=全局 2=区组 3=主机"/>
+        <field name="scope_values"           type="systemstring" desc="关联的组或主机，组格式为 组id, 多个用逗号隔开; 主机格式为device_id, 多个用逗号隔开"/>
+        <field name="device_infos"           type="systemstring" desc="显示用，json对象数组, key为device_id,private_ips,public_ips,group_names"/>
+        <field name="group_infos"            type="systemstring" desc="显示用，json对象数组，key为area_name,group_name"/>
+        <field name="remark"                 type="systemstring"/>
+    </type>
+    <type name="varinfo_array_type"          class="array"   itemType="varinfo_type"/>
+
+    <type name="dbinfo_type"                 class="struct"  code="806">
+        <field name="id"                     type="systemstring"/>
+        <field name="name"                   type="systemstring"/>
+        <field name="ip"                     type="systemstring"/>
+        <field name="port"                   type="systemstring"/>
+        <field name="type"                   type="systemstring" desc="类型 1=mysql 2=sqlserver"/>
+        <field name="device_id"              type="systemstring"/>
+        <field name="device_info"            type="systemstring" desc=" json对象, key为device_id,private_ips,public_ips"/>
+        <field name="group_ids"              type="systemstring"/>
+        <field name="group_infos"            type="systemstring" desc="json对象数组，key为area_name,group_name"/>
+        <field name="remark"                 type="systemstring"/>
+    </type>
+    <type name="dbinfo_array_type"           class="array"   itemType="dbinfo_type"/>
+
+    <type name="dbselectinfo_type"           class="struct"  code="807">
+        <field name="id"                     type="systemstring"/>
+        <field name="name"                   type="systemstring"/>
+        <field name="ip"                     type="systemstring"/>
+        <field name="port"                   type="systemstring"/>
+        <field name="type"                   type="systemstring" desc="类型 1=mysql 2=sqlserver"/>
+        <field name="device_id"              type="systemstring"/>
+        <field name="device_info"            type="systemstring" desc=" json对象, key为device_id,private_ips,public_ips"/>
+        <field name="remark"                 type="systemstring"/>
+    </type>
+    <type name="dbselectinfo_array_type"     class="array"   itemType="dbselectinfo_type"/>
+
+
+    <type name="scriptinfo_type"             class="struct"  code="850">
+        <field name="id"                     type="systemstring"/>
+        <field name="name"                   type="systemstring"/>
+        <field name="md5"                    type="systemstring"/>
+        <field name="size"                   type="systemstring"/>
+        <field name="remark"                 type="systemstring"/>
+        <field name="exec_count"             type="systemstring"/>
+        <field name="create_time"            type="systemstring"/>
+        <field name="create_user"            type="systemstring"/>
+        <field name="update_time"            type="systemstring"/>
+        <field name="update_user"            type="systemstring"/>
+    </type>
+    <type name="scriptinfo_array_type"       class="array"   itemType="scriptinfo_type"/>
+
+    <message name="cdnkey_detail" id="100" desc="返回cdn配置">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="domain"             type="domain_type"/>
+            <field name="api_key"            type="api_key_type"/>
+            <field name="secret_key"         type="secret_key_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="cdnkey_save" id="101" desc="创建或修改cdn配置">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="domain"             type="domain_type"/>
+            <field name="api_key"            type="api_key_type"/>
+            <field name="secret_key"         type="secret_key_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="channel_list" id="110" desc="渠道列表,按num排序">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="start"              type="start_type"/>
+            <field name="page_size"          type="page_size_type"/>
+            <field name="keyword"            type="keyword_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="total"              type="total_type"/>
+            <field name="data"               type="channelinfo_array_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="channel_detail" id="111" desc="返回单个渠道的信息">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="id"                 type="id_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="num"                type="num_type"/>
+            <field name="name"               type="name_type"/>
+            <field name="remark"             type="remark_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="channel_create" id="112" desc="创建渠道">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="num"                type="num_type"/>
+            <field name="name"               type="name_type"/>
+            <field name="remark"             type="remark_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="id"                 type="id_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="channel_modifymulti" id="113" desc="批量修改渠道">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="ids"                type="ids_type"/>
+            <field name="num"                type="num_type"/>
+            <field name="name"               type="name_type"/>
+            <field name="remark"             type="remark_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="channel_delete" id="114" desc="删除单个渠道，渠道必须先解除与区组的绑定才能被删除">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="id"                 type="id_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="channel_deletemulti" id="115" desc="删除多个渠道，渠道必须先解除与区组的绑定才能被删除">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="ids"                type="ids_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="role_list" id="150" desc="角色列表, 排序是先按name排序，再按id排序">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="start"              type="start_type"/>
+            <field name="page_size"          type="page_size_type"/>
+            <field name="keyword"            type="keyword_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="total"              type="total_type"/>
+            <field name="data"               type="roleinfo_array_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="role_detail" id="151" desc="角色详情">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="id"                 type="id_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="name"               type="name_type"/>
+            <field name="startup_script"     type="startup_script_type"/>
+            <field name="startup_order"      type="startup_order_type"/>
+            <field name="stop_script"        type="stop_script_type"/>
+            <field name="stop_order"         type="stop_order_type"/>
+            <field name="upgrade_package"    type="upgrade_package_type"/>
+            <field name="upgrade_path"       type="upgrade_path_type"/>
+            <field name="remark"             type="remark_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="role_create" id="152" desc="创建角色">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="name"               type="name_type"/>
+            <field name="startup_script"     type="startup_script_type"/>
+            <field name="startup_order"      type="startup_order_type"/>
+            <field name="stop_script"        type="stop_script_type"/>
+            <field name="stop_order"         type="stop_order_type"/>
+            <field name="upgrade_package"    type="upgrade_package_type"/>
+            <field name="upgrade_path"       type="upgrade_path_type"/>
+            <field name="remark"             type="remark_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="id"                 type="id_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="role_append" id="153" desc="为一个角色添加更多路径，允许一台机器上部署相同的角色多个实例">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="id"                 type="id_type"/>
+            <field name="startup_script"     type="startup_script_type"/>
+            <field name="startup_order"      type="startup_order_type"/>
+            <field name="stop_script"        type="stop_script_type"/>
+            <field name="stop_order"         type="stop_order_type"/>
+            <field name="upgrade_package"    type="upgrade_package_type"/>
+            <field name="upgrade_path"       type="upgrade_path_type"/>
+            <field name="remark"             type="remark_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="role_modifymulti" id="154" desc="批量编辑角色">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="ids"                type="ids_type"/>
+            <field name="name"               type="name_type"/>
+            <field name="startup_script"     type="startup_script_type"/>
+            <field name="startup_order"      type="startup_order_type"/>
+            <field name="stop_script"        type="stop_script_type"/>
+            <field name="stop_order"         type="stop_order_type"/>
+            <field name="upgrade_package"    type="upgrade_package_type"/>
+            <field name="upgrade_path"       type="upgrade_path_type"/>
+            <field name="remark"             type="remark_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="role_delete" id="155" desc="删除单个角色, 级联删除所有设备绑定">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="id"                 type="id_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="role_deletemulti" id="156" desc="批量删除角色, 级联删除所有设备绑定">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="ids"                type="ids_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="role_order" id="157" desc="编辑启动停止顺序">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="id"                 type="id_type"/>
+            <field name="field"              type="field_type" desc=" 字段名， 值可以是 startup_order 或 stop_order"/>
+            <field name="order"              type="order_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="group_list" id="170" desc="区组列表,按area_num,group_num排序">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="start"              type="start_type"/>
+            <field name="page_size"          type="page_size_type"/>
+            <field name="keyword"            type="keyword_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="total"              type="total_type"/>
+            <field name="data"               type="groupinfo_array_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="group_tree" id="171" desc="获取自定义区组 所有区 树结构,返回的顺序就是显示的顺序">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="area_num"           type="area_num_type" desc="不传则查所有区"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="total"              type="total_type"/>
+            <field name="data"               type="grouptreeinfo_array_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="group_create" id="172" desc="创建区组">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="area_open_num"      type="area_open_num_type"/>
+            <field name="area_open_name"     type="area_open_name_type"/>
+            <field name="group_open_num"     type="group_open_num_type"/>
+            <field name="group_open_name"    type="group_open_name_type"/>
+            <field name="channel_ids"        type="channel_ids_type"/>
+            <field name="area_num"           type="area_num_type"/>
+            <field name="area_name"          type="area_name_type"/>
+            <field name="group_num"          type="group_num_type"/>
+            <field name="group_name"         type="group_name_type"/>
+            <field name="remark"             type="remark_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="id"                 type="id_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="group_modifymulti" id="173" desc="批量编辑区组">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="ids"                type="ids_type"/>
+            <field name="area_open_num"      type="area_open_num_type"/>
+            <field name="area_open_name"     type="area_open_name_type"/>
+            <field name="group_open_num"     type="group_open_num_type"/>
+            <field name="group_open_name"    type="group_open_name_type"/>
+            <field name="channel_ids"        type="channel_ids_type"/>
+            <field name="area_num"           type="area_num_type"/>
+            <field name="area_name"          type="area_name_type"/>
+            <field name="group_num"          type="group_num_type"/>
+            <field name="group_name"         type="group_name_type"/>
+            <field name="remark"             type="remark_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="group_delete" id="174" desc="删除单个区组, 级联删除所有设备绑定">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="id"                 type="id_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="group_deletemulti" id="175" desc="删除区组, 级联删除所有设备绑定">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="ids"                type="ids_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="device_list" id="200" desc="主机列表">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="start"              type="start_type"/>
+            <field name="page_size"          type="page_size_type"/>
+            <field name="keyword"            type="keyword_type"/>
+            <field name="state"              type="state_type"/>
+            <field name="bind"               type="bind_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="total"              type="total_type"/>
+            <field name="data"               type="deviceinfo_array_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="device_select" id="201" desc="主机选择查询接口,返回所有结果，不分页">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="area_nums"          type="area_nums_type"/>
+            <field name="group_nums"         type="group_nums_type"/>
+            <field name="device_ids"         type="device_ids_type"/>
+            <field name="ips"                type="ips_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="data"               type="deviceinfo_array_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="device_bind" id="202" desc="设置主机的角色 区组 关联">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="device_ids"         type="device_ids_type"/>
+            <field name="binds"              type="device_bindinfo_type"/>
+            <field name="remark"             type="remark_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="var_list" id="210" desc="设备列表">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="start"              type="start_type"/>
+            <field name="page_size"          type="page_size_type"/>
+            <field name="keyword"            type="keyword_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="total"              type="total_type"/>
+            <field name="data"               type="varinfo_array_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="var_modifymulti" id="211" desc="批量修改变量">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="ids"                type="ids_type"/>
+            <field name="name"               type="name_type"/>
+            <field name="value"              type="value_type"/>
+            <field name="scope"              type="scope_type"/>
+            <field name="scope_values"       type="scope_values_type"/>
+            <field name="remark"             type="remark_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="db_list" id="220" desc="数据库实例">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="start"              type="start_type"/>
+            <field name="page_size"          type="page_size_type"/>
+            <field name="keyword"            type="keyword_type"/>
+            <field name="area_nums"          type="area_nums_type"/>
+            <field name="group_nums"         type="group_nums_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="total"              type="total_type"/>
+            <field name="data"               type="dbinfo_array_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="db_select" id="221" desc="数据库实例选择，不分页">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="area_nums"          type="area_nums_type"/>
+            <field name="group_nums"         type="group_nums_type"/>
+            <field name="name"               type="name_type"/>
+            <field name="ips"                type="ips_type"/>
+            <field name="type"               type="type_type" desc="类型 1=mysql 2=sqlserver"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="data"               type="dbselectinfo_array_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="db_modifymulti" id="222" desc="批量修改数据库">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="ids"                type="ids_type"/>
+            <field name="name"               type="name_type"/>
+            <field name="ip"                 type="ip_type"/>
+            <field name="port"               type="port_type"/>
+            <field name="type"               type="type_type" desc="类型 1=mysql 2=sqlserver"/>
+            <field name="device_id"          type="device_id_type"/>
+            <field name="group_ids"          type="group_ids_type"/>
+            <field name="remark"             type="remark_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+
+    <message name="script_list" id="300" desc="脚本列表">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="start"              type="start_type"/>
+            <field name="page_size"          type="page_size_type"/>
+            <field name="keyword"            type="keyword_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="total"              type="total_type"/>
+            <field name="data"               type="scriptinfo_array_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="script_detail" id="301" desc="脚本明细">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="id"                 type="id_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="name"               type="name_type"/>
+            <field name="md5"                type="md5_type"/>
+            <field name="size"               type="size_type"/>
+            <field name="remark"             type="remark_type"/>
+            <field name="exec_count"         type="exec_count_type"/>
+            <field name="create_time"        type="create_time_type"/>
+            <field name="create_user"        type="create_user_type"/>
+            <field name="update_time"        type="update_time_type"/>
+            <field name="update_user"        type="update_user_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="script_save" id="302" desc="保存脚本，没有则创建，有则更新">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="name"               type="name_type"/>
+            <field name="md5"                type="md5_type"/>
+            <field name="size"               type="size_type"/>
+            <field name="remark"             type="remark_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="id"                 type="id_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="script_delete" id="303" desc="删除脚本">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="ids"                type="script_ids_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="script_incexec" id="304" desc="增加script使用次数, exec_count值加1">
+        <requestParameter>
+            <field name="id"                 type="id_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+</service>

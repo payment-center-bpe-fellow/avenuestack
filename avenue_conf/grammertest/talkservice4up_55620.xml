@@ -1,0 +1,469 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service  name="talkservice4up" id="55620"  IsTreeStruct ="false">
+
+    <type name="username_Type" class="string" code="1"/> 
+    <type name="appId_Type" class="int"    code="2" default="991002627"/> 
+    <type name="from_Type" class="string" code="3"/> 
+    <type name="to_Type" class="string" code="4"/> 
+    <type name="message_Type" class="string" code="5"/> 
+    <type name="talkId_Type" class="string" code="6"/> 
+    <type name="messageType_Type" class="int" code="15"/> 
+    <type name="iconUrl_Type" class="string" code="18"/> 
+    <type name="nickName_Type" class="string" code="22"/> 
+	<type name="clientIp_Type" class="string" code="52" />
+	<type name="extraInfo_Type" class="string" code="53" />
+	<type name="type_Type" class="int" code="70" />
+	<type name="friendUsername_Type" class="string" code="73" />
+	<type name="toPlatform_type" class="int" code="84" />
+	<type name="sendOnlyOnce_type" class="int" code="85" />
+	<type name="deviceId_Type" class="string" code="86" />
+	<type name="userData_Type" class="string" code="89" />
+	<type name="receiverType_type" class="int" code="90" />
+	<type name="receiverGame_type" class="int" code="91" default="0"/>
+	<type name="memo_type" class="string" code="92" />
+	<type name="keepHours_type" class="int" code="93" />
+	<type name="scheduleType_type" class="int" code="94" />
+	<type name="schedule_type" class="string" code="95" />
+	<type name="period_type" class="string" code="96" />
+	<type name="messageId_type" class="string" code="97" />
+	<type name="generator_type" class="int" code="98" />
+	<type name="title_type" class="string" code="99" />
+	<type name="content_type" class="string" code="100" />
+	<type name="data_type" class="string" code="101" />
+	<type name="styleId_type" class="int" code="102" />
+	<type name="receivers_type" class="string" code="103" />
+	<type name="userId_type" class="string" code="104" />
+	<type name="areaId_type" class="int" code="105" />
+	<type name="createTime_type" class="string" code="106" />
+	<type name="socId_type" class="string" code="107" />
+	<type name="toUsername_type" class="string" code="108" />
+	<type name="pageSize_type" class="int" code="109" />
+	<type name="seq_type" class="int" code="110" />
+	<type name="rowCount_type" class="int" code="111" />
+	<type name="talkInfo_type" class="struct" code="112" >
+        <field name="talkId" type="systemstring"/>
+        <field name="seq" type="int"/>
+        <field name="from" type="systemstring"/>
+        <field name="to" type="systemstring"/>
+        <field name="messageType" type="int"/>
+        <field name="message" type="systemstring"/>
+        <field name="extraInfo" type="systemstring"/>
+        <field name="createTime" type="systemstring"/>
+    </type>
+	<type name="talkList_type" class="array" itemType="talkInfo_Type"/>
+	<type name="taskId_type" class="string" code="113" />
+	<type name="gameId_type" class="int" code="114" />
+	<type name="receiverfile_type" class="string" code="115" />
+	<type name="draftInfo_type" class="struct" code="116" >
+        <field name="taskId" type="systemstring"/>
+        <field name="title" type="systemstring"/>
+        <field name="content" type="systemstring"/>
+        <field name="cat" type="systemstring"/>
+        <field name="createTime" type="systemstring"/>
+    </type>
+	<type name="draftinfo_array_type" class="array" itemType="draftInfo_Type"/>
+	<type name="filter_type" class="string" code="117" />
+	<type name="gamestat_type" class="struct" code="118" >
+        <field name="gameId" type="int"/>
+        <field name="taskCnt" type="int"/>
+        <field name="pushCnt" type="int"/>
+        <field name="pushArrived" type="int"/>
+    </type>
+	<type name="gamestat_array_type" class="array" itemType="gamestat_Type"/>
+	<type name="pushstat_type" class="struct" code="119" >
+        <field name="taskId" type="systemstring"/>
+        <field name="title" type="systemstring"/>
+        <field name="createTime" type="systemstring"/>
+        <field name="planned" type="int"/>
+        <field name="arrived" type="int"/>
+        <field name="arrivedPercent" type="int"/>
+        <field name="read" type="int"/>
+        <field name="readPercent" type="int"/>
+        <field name="gameId" type="int"/>
+        <field name="operator" type="systemstring" default=""/>
+    </type>
+	<type name="pushstat_array_type" class="array" itemType="pushstat_Type"/>
+	<type name="startdate_type" class="string" code="120" />
+	<type name="enddate_type" class="string" code="121" />
+	<type name="pushdetail_type" class="struct" code="122" >
+        <field name="rptDate" type="systemstring"/>
+        <field name="planned" type="int"/>
+        <field name="arrived" type="int"/>
+        <field name="arrivedPercent" type="int"/>
+        <field name="read" type="int"/>
+        <field name="readPercent" type="int"/>
+    </type>
+	<type name="pushdetail_array_type" class="array" itemType="pushdetail_Type"/>
+	<type name="talkstat_type" class="struct" code="123" >
+        <field name="rptDate" type="systemstring"/>
+        <field name="talkCnt" type="int"/>
+        <field name="openCnt" type="int"/>
+        <field name="personCnt" type="int"/>
+        <field name="sessionCnt" type="int"/>
+        <field name="sessionAvgTime" type="int"/>
+    </type>
+	<type name="talkstat_array_type" class="array" itemType="talkstat_Type"/>
+    <type name="platform_Type" class="int" code="124"/> 
+    <type name="shareTo_Type" class="string" code="125"/> 
+    <type name="env_Type" class="int" code="126"/> 
+    <type name="picture_Type" class="string" code="127"/> 
+    <type name="forceShow_Type" class="int" code="128"/> 
+    <type name="clickType_Type" class="int" code="129"/> 
+    <type name="clickUrl_Type" class="string" code="130"/> 
+    <type name="cat_Type" class="string" code="131"/> 
+    <type name="by_Type" class="int" code="132"/> 
+    <type name="layout_Type" class="int" code="133"/> 
+    <type name="circleId_Type" class="string" code="134"/> 
+    <type name="unreadstats_Type" class="string" code="135"/> 
+
+    <type name="privateChatUserInfo_type" class="string" code="136" />
+    <type name="privateChatUserInfo_array_type" class="array" itemType="privateChatUserInfo_type"/>
+    <type name="systemUsersOnly_type" class="int" code="137" />
+	<type name="operator_type" class="string" code="138"/>
+
+    <type name="pageNo_type" class="int" code="139" />
+    <type name="pageCount_type" class="int" code="140" />
+
+    <message name="createOrUpdateUser" id="1">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="username"          type="username_Type"         />
+            <field name="nickName" 			type="nickName_Type"        />		
+            <field name="iconUrl"           type="iconUrl_Type"         />
+            <field name="userData" 			type="userData_Type"        />				
+            <field name="clientIp" 			type="clientIp_Type"        />				
+        </requestParameter>
+        <responseParameter>			
+        </responseParameter>
+    </message>
+
+	<message name="blockFriend" id="2">
+		<requestParameter>
+			<field name="appId" 			type="appId_Type"       />
+            <field name="username" 	   		    type="username_type"  />	
+            <field name="friendUsername" 	   		    type="friendUsername_type"  />	
+            <field name="type" 	   		    type="type_type"  />	
+		</requestParameter>
+		<responseParameter>	
+		</responseParameter>
+    </message>
+
+	<message name="followfriend" id="3">
+		<requestParameter>
+			<field name="appId" 			type="appId_Type"       />
+            <field name="username" 	   		    type="username_type"  />	
+            <field name="friendUsername" 	   		    type="friendUsername_type"  />	
+            <field name="type" 	   		    type="type_type"  />	
+		</requestParameter>
+		<responseParameter>	
+		</responseParameter>
+    </message>
+
+	<message name="markuser" id="4">
+		<requestParameter>
+			<field name="appId" 			type="appid_type"       />
+            <field name="username" 	   		    type="username_type"  />	
+            <field name="gameId" 	   		    type="gameId_type"  />	
+            <field name="type" 	   		    type="type_type"  />	
+		</requestParameter>
+		<responseParameter>	
+		</responseParameter>
+    </message>
+
+	<message name="blockUser" id="5">
+		<requestParameter>
+			<field name="appId" 			type="appid_type"       />
+            <field name="username" 	   		    type="username_type"  />	
+            <field name="type" 	   		    type="type_type"  />	
+		</requestParameter>
+		<responseParameter>	
+		</responseParameter>
+    </message>
+
+    <message name="kick" id="6">
+        <requestParameter>
+			<field name="appId" 			type="appId_Type"       />
+            <field name="username" 	   		    type="username_type"  />	
+        </requestParameter>
+        <responseParameter> 
+        </responseParameter>
+    </message>
+
+	<message name="followCircle" id="7">
+		<requestParameter>
+			<field name="appId" 			type="appId_Type"       />
+            <field name="username" 	   		    type="username_type"  />	
+            <field name="circleId" 	   		    type="circleId_type"  />	
+            <field name="type" 	   		    type="type_type"  />	
+		</requestParameter>
+		<responseParameter>	
+		</responseParameter>
+    </message>
+
+    <message name="saveDraft" id="12">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="gameId" 	        type="gameId_Type"       />
+            <field name="taskId" 	        type="taskId_Type"       />
+            <field name="title" 	        type="title_Type"       />
+            <field name="content" 	     	type="content_Type"         />
+            <field name="picture" 	     	type="picture_type"         />
+            <field name="forceShow" 	     	type="forceShow_type"         />
+            <field name="clickType" 	     	type="clickType_type"         />
+            <field name="clickUrl" 	     	type="clickUrl_type"         />
+            <field name="layout" 	     	type="layout_type"         />
+            <field name="data" 	     	type="data_type"         />
+            <field name="env" 	        type="env_Type"       />
+            <field name="receiverType" 	   		    type="receiverType_type"  />	
+            <field name="receiverGame" 	   		    type="receiverGame_type"  />	
+            <field name="receivers" 	       	    type="receivers_type"     />		
+            <field name="receiverFile" 	       	    type="receiverFile_type"     />		
+            <field name="scheduleType" 	        type="scheduleType_Type"       />
+            <field name="schedule" 	        type="schedule_Type"       />
+            <field name="keepHours" 	        type="keepHours_Type"       />
+            <field name="period" 	        type="period_Type"       />
+        </requestParameter>
+        <responseParameter>
+            <field name="taskId" 	        type="taskId_Type"       />
+        </responseParameter>
+    </message>
+
+    <message name="getDraft" id="13">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="gameId" 	        type="gameId_Type"       />
+            <field name="taskId" 	        type="taskId_Type"       />
+        </requestParameter>
+        <responseParameter>
+            <field name="title" 	        type="title_Type"       />
+            <field name="content" 	     	type="content_Type"         />
+            <field name="picture" 	     	type="picture_type"         />
+            <field name="forceShow" 	     	type="forceShow_type"         />
+            <field name="clickType" 	     	type="clickType_type"         />
+            <field name="clickUrl" 	     	type="clickUrl_type"         />
+            <field name="layout" 	     	type="layout_type"         />
+            <field name="data" 	     	type="data_type"         />
+            <field name="env" 	        type="env_Type"       />
+            <field name="receiverType" 	   		    type="receiverType_type"  />	
+            <field name="receiverGame" 	   		    type="receiverGame_type"  />	
+            <field name="receivers" 	       	    type="receivers_type"     />		
+            <field name="receiverFile" 	       	    type="receiverFile_type"     />		
+            <field name="scheduleType" 	        type="scheduleType_Type"       />
+            <field name="schedule" 	        type="schedule_Type"       />
+            <field name="keepHours" 	        type="keepHours_Type"       />
+            <field name="period" 	        type="period_Type"       />
+        </responseParameter>
+    </message>
+
+    <message name="queryDraft" id="14">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="filter" 	        type="filter_Type"       />
+            <field name="gameId" 	        type="gameId_Type"       />
+        </requestParameter>
+        <responseParameter>
+            <field name="rowCount"          type="rowCount_Type"        />	
+            <field name="list"          type="draftinfo_array_Type"        />	
+        </responseParameter>
+    </message>
+
+    <message name="getDraftCount" id="15">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="gameId" 	        type="gameId_Type"       />
+        </requestParameter>
+        <responseParameter>
+            <field name="draftCount"          type="rowCount_Type"        />	
+        </responseParameter>
+    </message>
+
+    <message name="setDraftCat" id="16">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="gameId" 	        type="gameId_Type"       />
+            <field name="taskId" 	        type="taskId_Type"       />
+            <field name="cat" 	        type="cat_Type"       />
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="deleteDraft" id="17">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="gameId" 	        type="gameId_Type"       />
+            <field name="taskId" 	        type="taskId_Type"       />
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="pushMessage" id="20">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="taskId" 	        type="taskId_Type"       />
+            <field name="gameId" 	        type="gameId_Type"       />
+            <field name="env" 	        type="env_Type"       />
+            <field name="receiverType" 	   		    type="receiverType_type"  />	
+            <field name="receiverGame" 	   		    type="receiverGame_type"  />	
+            <field name="receivers" 	       	    type="receivers_type"     />		
+            <field name="receiverFile" 	       	    type="receiverFile_type"     />		
+            <field name="messageType" 	    type="messageType_Type"       />			
+            <field name="message" 	        type="message_Type"       />
+            <field name="extraInfo" 	     	type="extraInfo_Type"         />
+            <field name="scheduleType" 	        type="scheduleType_Type"       />
+            <field name="schedule" 	        type="schedule_Type"       />
+            <field name="keepHours" 	        type="keepHours_Type"       />
+            <field name="period" 	        type="period_Type"       />
+            <field name="operator" 	        type="operator_type"       />
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="queryGameStats" id="21">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="gameId" 	        type="gameId_Type"       />
+        </requestParameter>
+        <responseParameter>
+            <field name="rowCount"          type="rowCount_Type"        />	
+            <field name="list"          type="gamestat_array_Type"        />	
+        </responseParameter>
+    </message>
+
+    <message name="queryPushStats" id="22">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="gameId" 	        type="gameId_Type"       />
+            <field name="filter" 	        type="filter_Type"       />
+            <field name="by" 	        type="by_Type"       />
+            <field name="startDate" 	        type="startDate_type"       />
+            <field name="endDate" 	        type="endDate_type"       />
+            <field name="pageNo" 	        type="pageNo_type"      default="1"/>
+            <field name="pageSize" 	        type="pageSize_type"   default="20" />
+        </requestParameter>
+        <responseParameter>
+            <field name="rowCount"          type="rowCount_Type"        />	
+            <field name="list"          type="pushstat_array_Type"        />	
+            <field name="pageCount"          type="pageCount_Type"        />	
+        </responseParameter>
+    </message>
+
+    <message name="queryPushDetails" id="23">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="gameId" 	        type="gameId_Type"       />
+            <field name="taskId" 	        type="taskId_Type"       />
+            <field name="startDate" 	        type="startDate_type"       />
+            <field name="endDate" 	        type="endDate_type"       />
+        </requestParameter>
+        <responseParameter>
+            <field name="rowCount"          type="rowCount_Type"        />	
+            <field name="list"          type="pushdetail_array_Type"        />	
+        </responseParameter>
+    </message>
+
+    <message name="queryTalkStats" id="31">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="startDate" 	        type="startDate_type"       />
+            <field name="endDate" 	        type="endDate_type"       />
+            <field name="platform" 	        type="platform_type"       />
+        </requestParameter>
+        <responseParameter>
+            <field name="rowCount"          type="rowCount_Type"        />	
+            <field name="list"          type="talkstat_array_Type"        />	
+        </responseParameter>
+    </message>
+
+	<message name="searchTalks" id="32">
+		<requestParameter>
+			<field name="appId" 			type="appId_Type"       />
+            <field name="username" 	   		    type="username_type"  />	
+            <field name="toUsername" 	   		    type="toUsername_type"  />	
+			<field name="pageSize" 			type="pageSize_Type"    />			
+			<field name="seq" 			type="seq_Type"      />	
+		</requestParameter>
+		<responseParameter>	
+            <field name="rowCount"          type="rowCount_Type"        />	
+            <field name="talkList"          type="talkList_Type"        />	
+		</responseParameter>
+    </message>
+
+	<message name="queryUnread" id="33">
+		<requestParameter>
+			<field name="appId" 			type="appId_Type"       />
+            <field name="username" 	   		    type="username_type"  />	
+            <field name="friendUsernames" 	   		    type="friendUsername_type"  />	
+		</requestParameter>
+		<responseParameter>	
+            <field name="unreadStats"          type="unreadStats_Type"        />	
+		</responseParameter>
+    </message>
+
+    <message name="queryFriends" id="34">
+        <requestParameter>
+            <field name="appId" type="appId_type" />
+            <field name="username" type="username_type" />
+            <field name="systemUsersOnly" type="systemUsersOnly_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="userInfos" type="privateChatUserInfo_array_type" />
+        </responseParameter>
+    </message>
+
+    <message name="clearUnread" id="35">
+        <requestParameter>
+            <field name="appId" type="appId_type" />
+            <field name="username" type="username_type" />
+            <field name="friendUsername" type="friendUsername_type"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="setreadflag4praise" id="36">
+        <requestParameter>
+            <field name="appId" type="appId_type" />
+            <field name="username" type="username_type" />
+            <field name="seq" type="seq_type"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="talk" id="41">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="from" 	   		    type="from_Type"  />	
+            <field name="to" 	       	    type="to_Type"     />		
+            <field name="messageType" 	    type="messageType_Type"       />			
+            <field name="message" 	        type="message_Type"       />
+            <field name="extraInfo" 	     	type="extraInfo_Type"         />
+            <field name="toPlatform" 			type="toPlatform_Type"        />				
+            <field name="toDeviceId" 			type="deviceId_Type"        />				
+        </requestParameter>
+        <responseParameter>
+            <field name="talkId" 	   	    type="talkId_Type"         />	
+            <field name="seq" 	   	    type="seq_Type"         />	
+        </responseParameter>
+    </message>
+
+    <message name="share" id="42">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="username" 	   		    type="username_type"  />	
+            <field name="shareTo" 	   		    type="shareTo_type"  />	
+            <field name="messageType" 	    type="messageType_Type"       />			
+            <field name="message" 	        type="message_Type"       />
+            <field name="extraInfo" 	     	type="extraInfo_Type"         />
+        </requestParameter>
+        <responseParameter>
+            <field name="talkId" 			type="talkId_Type"        />				
+        </responseParameter>
+    </message>
+
+</service>
+
+

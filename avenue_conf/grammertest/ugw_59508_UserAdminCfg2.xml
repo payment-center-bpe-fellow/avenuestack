@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service name="UserAdminCfg2" id="59508" IsTreeStruct ="false">
+	
+	<type name="s_extend_return" code="1" class="string" desc="扩展参数"/>
+	<type name="i_bpeCode" class="int" code="2" desc="返回的消息"/>
+	<type name="s_bpeMsg" class="string" code="3" desc="返回的状态吗"/>
+
+	<type name="page_size_code" class="int" code="4" desc="页块大小"/>
+	<type name="page_index_code" class="int" code="5"  desc="当前页下标"/>
+	<type name="total_page_code" class="int" code="6"  desc="总页数"/>
+	<type name="sort_rule_code" class="string" code="7"  desc="排序规则: 升序:asc 降序:desc"/>
+	<type name="total_count_code" class="int" code="8"  desc="总记录数"/>
+
+	<type name="circle_id_code" class="int" code="9" desc="圈子id" />
+	<type name="user_id_code" class="string" code="10" desc="用户id" />
+	<type name="ad_category_code" class="int" code="11" desc="广告类型" />
+
+	<type name="circle_ad_row_code" class="struct" code="12">
+		<field name="ad_id" type="int" />
+		<field name="ad_text" type="systemstring" />
+		<field name="ad_img_url" type="systemstring" />
+		<field name="ad_url" type="systemstring" />
+		<field name="url_open_type" type="int" />
+		<field name="order_num" type="int" />
+		<field name="status" type="int" />
+		<field name="gradation" type="int" />
+		<field name="begin_time" type="systemstring" />
+		<field name="end_time" type="systemstring" />
+		<field name="show_type" type="int" />
+		<field name="circle_id" type="int" />
+		<field name="game_name" type="systemstring" />
+    </type>
+	<type name="circle_ad_array_code" class="array" itemType="circle_ad_row_code"/>	
+	
+	<type name="ad_img_url_code" class="string" code="13" desc="广告图片url" />
+	<type name="ad_text_code" class="string" code="14" desc="广告文本" />
+	<type name="ad_url_code" class="string" code="15" desc="广告跳转地址" />
+	<type name="order_num_code" class="int" code="16" desc="排序序号" />
+	<type name="status_code" class="int" code="17" desc="上架状态" />
+	<type name="url_open_type_code" class="int" code="18" desc="打开方式" />
+	<type name="begin_time_code" class="string" code="19" desc="开始时间" />
+	<type name="end_time_code" class="string" code="20" desc="结束时间" />
+	<type name="show_type_code" class="int" code="21" desc="终端显示" />
+	<type name="ticket_type_code" class="int" code="22" desc="传递票据类型" />
+	<type name="ad_id_code" class="int" code="23" desc="广告id" />
+	<type name="gradation_code" class="int" code="24" desc="灰度发布" />
+	
+	<type name="close_notify_row_code" class="struct" code="25">
+		<field name="notify_id" type="int" />
+		<field name="title" type="systemstring" />
+		<field name="notify_content" type="systemstring" />
+		<field name="begin_time" type="systemstring" />
+		<field name="end_time" type="systemstring" />
+		<field name="status" type="int" />
+		<field name="gradation" type="int" />
+		<field name="create_time" type="systemstring" />
+		<field name="update_time" type="systemstring" />
+		<field name="notify_sort_index" type="int" />
+	</type>
+	<type name="close_notify_array_code" class="array" itemType="close_notify_row_code"/>	
+	
+	<type name="notify_content_code" class="string" code="26" desc="退弹内容" />
+	<type name="title_code" class="string" code="27" desc="退弹标题" />
+	<type name="notify_id_code" class="int" code="28" desc="退弹id" />
+	
+	<type name="game_event_row_code" class="struct" code="29">
+		<field name="event_id" type="int" />
+		<field name="game_id" type="int" />
+		<field name="event" type="systemstring" />
+		<field name="event_time" type="systemstring" />
+		<field name="ticket_type" type="int" />
+		<field name="url_open_type" type="int" />
+		<field name="ad_url" type="systemstring" />
+		<field name="create_time" type="systemstring" />
+		<field name="update_time" type="systemstring" />
+		<field name="game_name" type="systemstring" />
+		<field name="game_logo" type="systemstring" />
+	</type>
+	<type name="game_event_array_code" class="array" itemType="game_event_row_code"/>	
+
+	<type name="event_code" class="string" code="30" desc="事件内容" />
+	<type name="event_time_code" class="string" code="31" desc="事件发生时间" />
+	<type name="game_id_code" class="int" code="32" desc="游戏id" />
+	<type name="event_id_code" class="int" code="33" desc="事件id" />
+	
+	<type name="begin_date_code" class="string" code="34" desc="开始时间" />
+	<type name="end_date_code" class="string" code="35" desc="结束时间" />
+	<type name="feedback_status_code" class="int" code="36" desc="状态" />
+	
+	<type name="feedback_row_code" class="struct" code="37">
+		<field name="id" type="int" />
+		<field name="user_id" type="systemstring" />
+		<field name="feedback" type="systemstring" />
+		<field name="reply_user_id" type="systemstring" />
+		<field name="reply" type="systemstring" />
+		<field name="category1" type="systemstring" />
+		<field name="category2" type="systemstring" />
+		<field name="category3" type="systemstring" />
+		<field name="reply_time" type="systemstring" />
+		<field name="create_time" type="systemstring" />
+		<field name="update_time" type="systemstring" />
+		
+		<field name="feedback_status" type="int" />
+		
+		<field name="nickname" type="systemstring" />
+		<field name="avatar" type="systemstring" />
+	</type>	
+	<type name="feedback_array_code" class="array" itemType="feedback_row_code"/>	
+	<type name="feedback_code" class="string" code="38" desc="反馈内容" />
+	<type name="category1_code" code="39" class="string"  />
+	<type name="category2_code" code="40" class="string"  />
+	<type name="category3_code" code="41" class="string"  />
+	<type name="feed_back_id_code" code="42" class="int" />
+	<type name="reply_code" code="43" class="string"  />
+	<type name="type_code" code="44" class="int" />
+	<type name="keyword_code" code="45" class="string"  />
+	<type name="keyword_ids_code" code="46" class="string"  />
+	
+	<type name="gradation_user_row_code" class="struct" code="47">
+		<field name="user_id" type="systemstring" />
+		<field name="user_phone" type="systemstring" />
+		<field name="user_name"	type="systemstring" />
+	</type>
+	<type name="gradation_user_array_code" class="array" itemType="gradation_user_row_code"/>
+	<type name="user_phone_code" code="48" class="string"  />
+	<type name="sort_index_code" code="49" class="int"  />
+	<type name="is_external_code" code="50" class="int"  />
+	<type name="is_game_desc_code" code="51" class="int"  />
+	<type name="channel_id_code" code="52" class="int"  />
+	<type name="menu_id_code" code="53" class="int"  />
+	
+	<type name="menu_logo_code" code="54" class="string"  />
+	<type name="menu_name_code" code="55" class="string"  />
+	<type name="menu_type_code" code="56" class="int"  />
+	<type name="url_code" code="57" class="string"  />
+	<type name="skip_user_name_code" code="58" class="int"  />
+	
+	<type name="reserved_word_row_code" class="struct" code="59">
+		<field name="id" type="int" />
+		<field name="word_type" type="int" />
+		<field name="keyword" type="systemstring" />
+		<field name="create_time" type="systemstring" />
+	</type>
+	<type name="reserved_word_array_code" class="array" itemType="reserved_word_row_code"/>
+	
+	<type name="board_type_code" code="60" class="int"  />
+	<type name="board_id_code" code="61" class="int"  />
+	<type name="redirect_url_code" code="62" class="string"  />
+	
+	<type name="days_code" code="63" class="int"  />
+	<type name="circle_board_row" class="struct" code="64">
+		<field name="board_id" type="int" />
+		<field name="board_type" type="int" />
+		<field name="circl_id" type="int" />
+		<field name="game_id" type="int" />
+		<field name="game_name" type="systemstring" />
+		<field name="title" type="systemstring" />
+		<field name="content" type="systemstring" />
+		<field name="redirect_url" type="systemstring" />
+		<field name="url_open_type" type="int" />
+		<field name="ticket_type" type="int" />
+		<field name="status" type="int" />
+		<field name="gradation" type="int" />
+		<field name="begin_time" type="systemstring" />
+		<field name="end_time" type="systemstring" />
+		<field name="show_type" type="int" />
+	</type>
+	<type name="circle_board_list" class="array" itemType="circle_board_row"/>
+	<type name="circle_board_id_row" class="struct" code="65">
+		<field name="circle_id" type="int" />
+		<field name="board_id" type="int" />
+	</type>
+	<type name="circle_board_id_list" class="array" itemType="circle_board_id_row"/>
+	<type name="startup_id_code" code="66" class="int"  />
+	<type name="current_ios_startup_id_code" code="67" class="int"  />
+	<type name="current_android_startup_id_code" code="68" class="int"  />
+	<type name="start_pic_row" class="struct" code="69">
+		<field name="startup_id" type="int" />
+		<field name="title" type="systemstring" />
+		<field name="gradation" type="int" />
+		<field name="status" type="int" />
+		<field name="begin_time" type="systemstring" />
+		<field name="end_time" type="systemstring" />
+		<field name="show_type" type="int" />
+	</type>
+	<type name="start_pic_list" class="array" itemType="start_pic_row"/>
+	
+	<type name="pic_l_code" code="70" class="string"  />
+	<type name="pic_m_code" code="71" class="string"  />
+	<type name="pic_s_code" code="72" class="string"  />
+	<type name="pic_xs_code" code="73" class="string"  />
+	<type name="role_type_code" code="74" class="int"  />
+	<type name="data_acl_code" code="75" class="string"  />
+	<type name="is_super_code" code="76" class="int"  />
+	
+
+	<message name="addFeedback" id="12" desc="添加反馈">
+		<requestParameter>
+		
+			<field name="feedback" type="feedback_code" required="true" />
+			<field name="user_id" type="user_id_code" required="true" />
+			<field name="category1" type="category1_code" />
+			<field name="category2" type="category2_code" />
+			<field name="category3" type="category3_code" />
+		</requestParameter>
+		<responseParameter>
+			<field name="bpeCode"             type="i_bpeCode"/>
+			<field name="bpeMsg"              type="s_bpeMsg"/>
+			<field name="extend_return"       type="s_extend_return"/>
+		</responseParameter>	
+	</message>
+	
+</service>
+

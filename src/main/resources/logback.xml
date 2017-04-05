@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="60 seconds">
+
+<appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+      <charset>UTF-8</charset>
+    </encoder>
+</appender>
+
+<appender name="ROOT" class="ch.qos.logback.core.rolling.RollingFileAppender">
+  <file>/opt/logs/avenuestack/log/root.log</file>
+  <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+    <fileNamePattern>/opt/logs/avenuestack/log/root.log.%d{yyyy-MM-dd}</fileNamePattern>
+    <maxHistory>5</maxHistory>
+  </rollingPolicy>
+  <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+      <charset>UTF-8</charset>
+  </encoder>
+</appender>
+
+<appender name="ALL" class="ch.qos.logback.core.rolling.RollingFileAppender">
+  <file>/opt/logs/avenuestack/log/all.log</file>
+  <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+    <fileNamePattern>/opt/logs/avenuestack/log/all.log.%d{yyyy-MM-dd}</fileNamePattern>
+    <maxHistory>5</maxHistory>
+  </rollingPolicy>
+  <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+      <charset>UTF-8</charset>
+  </encoder>
+</appender>
+
+<appender name="SOC" class="ch.qos.logback.core.rolling.RollingFileAppender">
+  <file>/opt/logs/avenuestack/log/soc.log</file>
+  <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+    <fileNamePattern>/opt/logs/avenuestack/log/soc.log.%d{yyyy-MM-dd}</fileNamePattern>
+    <maxHistory>5</maxHistory>
+  </rollingPolicy>
+  <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+      <charset>UTF-8</charset>
+  </encoder>
+</appender>
+
+<appender name="REQUESTLOG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+  <file>/opt/logs/avenuestack/auditlog/request_audit.log</file>
+  <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+    <fileNamePattern>/opt/logs/avenuestack/auditlog/request_audit.log.%d{yyyy-MM-dd}</fileNamePattern>
+    <maxHistory>5</maxHistory>
+  </rollingPolicy>
+  <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS},  %msg%n</pattern>
+      <charset>UTF-8</charset>
+  </encoder>
+</appender>
+<appender name="CSOSLOG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+  <file>/opt/logs/avenuestack/auditlog/csos_audit.log</file>
+  <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+    <fileNamePattern>/opt/logs/avenuestack/auditlog/csos_audit.log.%d{yyyy-MM-dd}</fileNamePattern>
+    <maxHistory>5</maxHistory>
+  </rollingPolicy>
+  <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS},  %msg%n</pattern>
+      <charset>UTF-8</charset>
+  </encoder>
+</appender>
+<appender name="REQSTATLOG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+  <file>/opt/logs/avenuestack/auditlog/request_stat.log</file>
+  <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+    <fileNamePattern>/opt/logs/avenuestack/auditlog/request_stat.log.%d{yyyy-MM-dd}</fileNamePattern>
+    <maxHistory>5</maxHistory>
+  </rollingPolicy>
+  <encoder>
+      <pattern>%msg%n</pattern>
+      <charset>UTF-8</charset>
+  </encoder>
+</appender>
+<appender name="REQSUMMARYLOG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+  <file>/opt/logs/avenuestack/auditlog/request_summary.log</file>
+  <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+    <fileNamePattern>/opt/logs/avenuestack/auditlog/request_summary.log.%d{yyyy-MM-dd}</fileNamePattern>
+    <maxHistory>5</maxHistory>
+  </rollingPolicy>
+  <encoder>
+      <pattern>%msg%n</pattern>
+      <charset>UTF-8</charset>
+  </encoder>
+</appender>
+<appender name="SOSSTATLOG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+  <file>/opt/logs/avenuestack/auditlog/sos_stat.log</file>
+  <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+    <fileNamePattern>/opt/logs/avenuestack/auditlog/sos_stat.log.%d{yyyy-MM-dd}</fileNamePattern>
+    <maxHistory>5</maxHistory>
+  </rollingPolicy>
+  <encoder>
+      <pattern>%msg%n</pattern>
+      <charset>UTF-8</charset>
+  </encoder>
+</appender>
+
+<logger name="avenuestack" level="info" additivity="false"><appender-ref ref="ALL" /></logger>
+<logger name="avenuestack.impl.netty.NettyClient" level="info" additivity="false"><appender-ref ref="SOC" /></logger>
+
+<logger name="avenuestack.RequestLog" level="info" additivity="false"><appender-ref ref="REQUESTLOG" /></logger>
+<logger name="avenuestack.CsosLog" level="info" additivity="false"><appender-ref ref="CSOSLOG" /></logger>
+<logger name="avenuestack.ReqStatLog" level="info" additivity="false"><appender-ref ref="REQSTATLOG" /></logger>
+<logger name="avenuestack.ReqSummaryLog" level="info" additivity="false"><appender-ref ref="REQSUMMARYLOG" /></logger>
+<logger name="avenuestack.SosStatLog" level="info" additivity="false"><appender-ref ref="SOSSTATLOG" /></logger>
+
+<root level="warn"><appender-ref ref="ROOT" /></root>
+
+</configuration>
+

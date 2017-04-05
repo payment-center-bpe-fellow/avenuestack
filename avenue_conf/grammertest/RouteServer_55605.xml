@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service  name="RouteServer" id="55605"  IsTreeStruct ="false">
+
+    <type name="failReason_Type" class="string" code="1000"/> 
+    <type name="username_Type" 	   		 class="string" code="1"/>
+    <type name="appId_Type" 	   		 class="int"    code="2"/>
+    <type name="appKey_Type" 	   		 class="string" code="3"/>
+    <type name="to_Type"   		    	 class="string" code="5"/>
+    <type name="createTime_Type"   		 class="string" code="9"/>
+    <type name="messageType_Type" 	   	 class="int"    code="15"/>
+    <type name="iconUrl_Type" 	   	     class="string" code="18"/>
+    <type name="lvl_Type" 	   	    	 class="string" code="19"/>
+    <type name="talkList_Type" 	   	     class="string" code="21"/>
+    <type name="talkList_array_type"    class="array" itemType="talkList_type"/>
+    <type name="nickName_Type" 	   		 class="string" code="23"/>
+    <type name="currentTime_Type"  		 class="string" code="29"/>
+    <type name="ticket_Type" 	class="string" 	code="31" />
+	<type name="areaId_Type" 	   		 class="int"    code="34"/>
+	<type name="userId_Type" 	class="string" 	code="35" />
+	<type name="roleName_Type" 	class="string" 	code="36" />
+	<type name="extInfo_Type" 	class="string" 	code="37" />
+	<type name="platform_Type" 	class="int" 	code="38" />
+	<type name="title_Type"     class="string" code="39" />
+	<type name="content_Type"     class="string" code="40" />
+	<type name="data_Type"        class="string" code="41" />
+	<type name="receiverType_Type" class="int"       code="42" />
+	<type name="receiver_Type"     class="string"    code="43" />
+	<type name="socId_Type"     class="string"    code="45" />
+	<type name="deviceId_Type" 	class="string" 	code="46" />
+	<type name="deviceToken_Type" class="string" code="47" />
+	<type name="generator_Type" class="int"    code="48" />
+	<type name="messageId_Type" class="string" code="49" />
+	<type name="styleId_Type" class="int" code="51" />
+	<type name="schedule_type" 		class="string" 	code="52" />
+	<type name="userData_type" 		class="string" 	code="56"/>
+	<type name="rptIds_type" 		class="string" 	code="57"/>
+    <type name="sessionId_Type" 	class="string" 	code="200" />
+
+    <message name="reportSpsId" id="1">
+        <requestParameter>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="login" id="110">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="appKey" 			type="appKey_Type"           />
+            <field name="username"          type="username_Type"         />
+            <field name="nickName" 			type="nickName_Type"        />
+            <field name="iconUrl"           type="iconUrl_Type"         />
+            <field name="userData" 			type="userData_Type"          />
+            <field name="deviceId" 			type="deviceId_Type"          />
+            <field name="platform" 			type="platform_Type"        />
+            <field name="ticket" 		    type="ticket_Type"           />
+            <field name="sessionId" 		    type="sessionId_type"           />
+            <field name="deviceToken" 		    type="deviceToken_type"           />
+        </requestParameter>
+        <responseParameter>
+            <field name="failReason"        type="failReason_Type" />   
+            <field name="nickName" 			type="nickName_Type"        />
+            <field name="iconUrl"           type="iconUrl_Type"         />
+            <field name="userData" 			type="userData_Type"          />
+            <field name="lvl" 				type="lvl_Type"             />
+            <field name="currentTime" 		type="currentTime_Type"      />
+            <field name="sessionId" 		    type="sessionId_type"           />
+        </responseParameter>
+    </message>
+
+    <message name="disconnected" id="111">
+        <requestParameter>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="logout" id="115">
+        <requestParameter>
+            <field name="sessionId" 		    type="sessionId_type"           />
+            <field name="appId" 			type="appId_Type"           />
+            <field name="username"          type="username_Type"         />
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="getTimestamp" id="121">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"           />
+        </requestParameter>
+        <responseParameter>
+            <field name="currentTime" 		type="currentTime_Type"      />
+        </responseParameter>
+    </message>
+
+    <message name="checkSessionId" id="122">
+        <requestParameter>
+            <field name="sessionId" 			type="sessionId_Type"           />
+            <field name="username" 			type="username_Type"           />
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="setDeviceToken" id="123">
+        <requestParameter>
+            <field name="sessionId" 			type="sessionId_Type"           />
+            <field name="appId" 			type="appId_Type"           />
+            <field name="username" 			type="username_Type"           />
+            <field name="deviceToken" 		    type="deviceToken_type"           />
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="batchPush" id="135">
+        <requestParameter>
+            <field name="appId" 		   type="appId_Type" />
+            <field name="to" 	       	   type="to_Type"    />
+            <field name="talkList" 	       type="talkList_array_type"    />
+            <field name="socId" 	     	type="socId_Type"         />
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+	<message name="setUserInfo" id="200">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"             />
+			<field name="appKey"            type="appKey_Type"            />
+            <field name="userId" 			type="userId_Type"            />
+			<field name="platform" 			type="platform_Type"          />
+            <field name="deviceId" 			type="deviceId_Type"          />
+            <field name="areaId"            type="areaId_Type"            />
+            <field name="roleName" 			type="roleName_Type"          />
+			<field name="deviceToken" 		type="deviceToken_Type"        />
+			<field name="extInfo" 		    type="extInfo_Type"            />
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+	<message name="pushMessage" id="201">
+        <requestParameter>
+            <field name="messageId" 		type="messageId_Type"           />
+            <field name="messageType"       type="messageType_Type"         />
+			<field name="generator"         type="generator_Type"        />
+            <field name="title" 			type="title_Type"             />
+            <field name="content" 			type="content_Type"             />
+            <field name="data" 			    type="data_Type"                />
+			<field name="styleId" 		    type="styleId_Type"        />
+			<field name="receiverType" 		type="receiverType_Type"        />
+			<field name="receiver" 			type="receiver_Type"          />
+			<field name="userId" 			type="userId_Type"        />
+			<field name="areaId" 			type="areaId_Type"          />
+			<field name="createTime" 		type="createTime_Type"        />
+			<field name="schedule"          type="schedule_type"       />
+			<field name="socId" 			type="socId_Type"             />
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+	<message name="clearUserInfo" id="203">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"             />
+            <field name="userId" 			type="userId_Type"            />
+            <field name="deviceId" 			type="deviceId_Type"          />
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+	<message name="reportDevice" id="204">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"             />
+            <field name="deviceId" 			type="deviceId_Type"          />
+            <field name="rptIds" 			type="rptIds_Type"            />
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="batchPushToDevice" id="205">
+        <requestParameter>
+            <field name="to" 	       	   type="to_Type"    />
+            <field name="talkList" 	       type="talkList_array_type"    />
+            <field name="socId" 	     	type="socId_Type"         />
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+</service>
+

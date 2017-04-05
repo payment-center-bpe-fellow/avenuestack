@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service  name="talkstat" id="55623"  IsTreeStruct ="false">
+
+    <type name="appId_Type" class="int"    code="2"/> 
+    <type name="from_Type" class="string" code="3"/> 
+    <type name="to_Type" class="string" code="4"/> 
+    <type name="talkId_Type" class="string" code="6"/> 
+    <type name="seconds_Type" class="int"    code="7"/> 
+    <type name="platform_Type" class="int"    code="8"/> 
+
+	<type name="rptdate_type" class="string" code="51" />
+	<type name="personcnt_type" class="int" code="53" />
+	<type name="talkcnt_type" class="int" code="54" />
+	<type name="sessioncnt_type" class="int" code="55" />
+	<type name="opencnt_type" class="int" code="56" />
+	<type name="sessiontotaltime_type" class="int" code="57" />
+	<type name="sessionavgtime_type" class="int" code="58" />
+
+    <message name="talk" id="1">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="from" 	   		    type="from_Type"  />	
+            <field name="to" 	       	    type="to_Type"     />		
+            <field name="platform" 			type="platform_Type"        />				
+            <field name="talkId" 	   	    type="talkId_Type"         />	
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="posttalk" id="2">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="from" 	   		    type="from_Type"  />	
+            <field name="to" 	       	    type="to_Type"     />		
+            <field name="platform" 			type="platform_Type"        />				
+            <field name="seconds" 	   	    type="seconds_Type"         />	
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="savetodb" id="3">
+        <requestParameter>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="updatestat" id="4">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"            />
+            <field name="rptDate" 	   		    type="rptDate_type"  />	
+            <field name="platform" 	       	    type="platform_Type"     />		
+            <field name="personCnt" 			type="personCnt_Type"        />				
+            <field name="talkCnt" 			type="talkCnt_Type"        />				
+            <field name="openCnt" 			type="openCnt_Type"        />				
+            <field name="sessionCnt" 			type="sessionCnt_Type"        />				
+            <field name="sessionTotalTime" 			type="sessionTotalTime_Type"        />				
+            <field name="sessionAvgTime" 			type="sessionAvgTime_Type"        />				
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+</service>
+
+

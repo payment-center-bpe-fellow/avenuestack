@@ -1,0 +1,41 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+
+version = '1.0'
+sourceCompatibility = 1.6
+targetCompatibility = 1.6
+
+jar.baseName = 'avenuestack'
+
+tasks.withType(JavaCompile) {
+	options.encoding = "UTF-8"
+}
+
+dependencies {
+        compile 'org.slf4j:slf4j-api:1.7.22'
+        compile 'ch.qos.logback:logback-classic:1.2.1'
+        compile 'ch.qos.logback:logback-core:1.2.1'
+        compile 'org.apache.commons:commons-lang3:3.5'
+        compile 'commons-io:commons-io:2.5'
+        compile 'dom4j:dom4j:1.6.1'
+        compile 'jaxen:jaxen:1.1.6'
+        compile 'org.jboss.netty:netty:3.2.6.Final'
+        testCompile 'junit:junit:4.12'
+}
+
+repositories {
+     maven { url 'http://maven.aliyun.com/nexus/content/groups/public/'}
+}
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            repository(url: "http://192.168.109.91:8081/nexus/content/repositories/releases/") {
+                authentication(userName: "xxxx", password: "yyyy")
+            }
+            pom.version = "$version"
+            pom.artifactId = "avenuestatck"
+            pom.groupId = "avenuestatck"
+        }
+    }
+}

@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service name="localqueue_reader" id="5562107" IsTreeStruct ="false">	
+
+    <type name="x_isLastSend_type" class="int" code="100"/>   
+    <type name="x_sendCount_type" class="int" code="101"/>    
+    <type name="x_sendTimeUsed_type" class="int" code="102"/> 
+
+    <type name="from_type" class="string" code="1"/>	
+    <type name="to_type" class="string" code="2"/>	
+    <type name="deviceToken_type" class="string" code="3"/>  
+    <type name="readSeq_type" class="int" code="4"/>  
+    <type name="shareSeq_type" class="int" code="5"/>  
+    <type name="appId_type" class="int" code="6"/>  
+
+    <type name="gameId_type" class="int" code="7"/>  
+	<type name="receivers_type" class="string" code="8" />
+	<type name="receiverfile_type" class="string" code="9" />
+    <type name="env_Type" class="int" code="10"/> 
+	<type name="receiverType_type" class="int" code="11" />
+	<type name="scheduleType_type" class="int" code="12" />
+	<type name="schedule_type" class="string" code="13" />
+	<type name="period_type" class="string" code="14" />
+	<type name="keepHours_type" class="int" code="15" />
+	<type name="platform_type" class="int" code="16" />
+    <type name="messageType_Type" class="int" code="17"/> 
+    <type name="message_Type" class="string" code="18"/> 
+	<type name="extraInfo_Type" class="string" code="19" />
+    <type name="taskSeq_type" class="string" code="20"/>  
+    <type name="pushId_type" class="string" code="21"/>  
+    <type name="type_type" class="int" code="22"/>  
+    <type name="planned_type" class="int" code="23"/>  
+    <type name="updateTime_type" class="string" code="24"/>  
+    <type name="deviceId_type" class="string" code="26"/>  
+    <type name="socId_type" class="string" code="27"/>  
+	<type name="fromTime_Type"     class="string" code="28" />
+    <type name="pushType_Type" class="int"    code="29"/> 
+    <type name="title_Type" class="string"    code="30"/> 
+    <type name="createTime_Type" class="string"    code="31"/> 
+    <type name="rptId_Type" class="string"    code="32"/> 
+    <type name="talkId_Type" class="string"    code="33"/> 
+    <type name="status_Type" class="string"    code="34"/> 
+    <type name="username_Type" class="string"    code="35"/> 
+    <type name="seq_Type" class="int"    code="36"/> 
+    <type name="receiverGame_type" class="int"    code="37"/> 
+	<type name="data_type" class="string" code="38"/>
+	<type name="trackId_type" class="string" code="39"/>
+
+    <message name="gentalk" id="1">
+        <requestParameter>		
+            <field name="appId"/>			
+            <field name="from"/>			
+            <field name="to"/>		
+            <field name="deviceToken"/>		
+            <field name="readSeq"/>		
+            <field name="shareSeq"/>		
+            <field name="trackId"/>
+            <field name="x_sendCount"/>
+            <field name="x_isLastSend"/>
+            <field name="x_sendTimeUsed"/>
+        </requestParameter>	
+        <responseParameter/>	
+    </message>	
+
+    <message name="readpush" id="2">
+        <requestParameter>		  
+            <field name="taskSeq"/>
+            <field name="appId"/>
+            <field name="gameId"/>
+            <field name="env"/>
+            <field name="receiverType"/>	
+            <field name="receiverGame"/>	
+            <field name="receivers"/>		
+            <field name="receiverFile"/>		
+            <field name="messageType"/>			
+            <field name="message"/>
+            <field name="extraInfo"/>
+            <field name="scheduleType"/>
+            <field name="schedule"/>
+            <field name="keepHours"/>
+            <field name="period"/>
+            <field name="data"/>
+            <field name="trackId"/>
+            <field name="x_sendCount"/>
+            <field name="x_isLastSend"/>
+            <field name="x_sendTimeUsed"/>
+        </requestParameter>		
+        <responseParameter/>
+    </message>
+
+    <message name="genpushtask" id="3">
+        <requestParameter>		  
+            <field name="taskSeq"/>
+            <field name="talkId"/>
+            <field name="appId"/>
+            <field name="gameId"/>
+            <field name="env"/>
+            <field name="receiverType"/>	
+            <field name="receiverGame"/>	
+            <field name="receivers"/>		
+            <field name="messageType"/>			
+            <field name="message"/>
+            <field name="extraInfo"/>
+            <field name="keepHours"/>
+            <field name="data"/>
+            <field name="trackId"/>
+            <field name="x_sendCount"/>
+            <field name="x_isLastSend"/>
+            <field name="x_sendTimeUsed"/>
+        </requestParameter>		
+        <responseParameter/>
+    </message>
+
+    <message name="updatepushstat" id="4">
+        <requestParameter>
+            <field name="type" type="type_type"/>
+            <field name="pushId" type="pushId_type"/>
+            <field name="appId" type="appId_type"/>
+            <field name="gameId" type="gameId_type"/>
+            <field name="receiverGame" type="receiverGame_type"/>
+            <field name="planned" type="planned_type"/>
+            <field name="updateTime" type="updateTime_type"/>
+            <field name="pushType" type="pushType_type"/>
+            <field name="title" type="title_type"/>
+            <field name="createTime" type="createTime_type"/>
+            <field name="data"/>
+            <field name="trackId"/>
+            <field name="x_sendCount"/>
+            <field name="x_isLastSend"/>
+            <field name="x_sendTimeUsed"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="startdevicepush" id="5">
+        <requestParameter>
+            <field name="deviceId" type="deviceId_type"/>
+            <field name="socId" type="socId_type"/>
+            <field name="fromTime" type="fromTime_type"/>
+            <field name="trackId"/>
+            <field name="x_sendCount"/>
+            <field name="x_isLastSend"/>
+            <field name="x_sendTimeUsed"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="reportDevice" id="6">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"             />
+            <field name="deviceId" type="deviceId_type"/>
+            <field name="rptId" type="rptId_type"/>
+            <field name="trackId"/>
+            <field name="x_sendCount"/>
+            <field name="x_isLastSend"/>
+            <field name="x_sendTimeUsed"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="checkstatus" id="7">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"             />
+            <field name="username"/>
+            <field name="status" type="status_type"/>
+            <field name="deviceToken" type="deviceToken_type"/>
+            <field name="trackId"/>
+            <field name="x_sendCount"/>
+            <field name="x_isLastSend"/>
+            <field name="x_sendTimeUsed"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="startsyspush" id="8">
+        <requestParameter>
+            <field name="appId"/>
+            <field name="username"/>
+            <field name="deviceToken"/>
+            <field name="platform" 			type="platform_Type"        />				
+            <field name="socId" 			type="socId_Type"        />				
+            <field name="trackId"/>
+            <field name="x_sendCount"/>
+            <field name="x_isLastSend"/>
+            <field name="x_sendTimeUsed"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="starttalkpush" id="9">
+        <requestParameter>
+            <field name="appId"/>
+            <field name="username"/>
+            <field name="deviceToken"/>
+            <field name="platform" 			type="platform_Type"        />				
+            <field name="socId" 			type="socId_Type"        />				
+            <field name="trackId"/>
+            <field name="x_sendCount"/>
+            <field name="x_isLastSend"/>
+            <field name="x_sendTimeUsed"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="startsharepush" id="10">
+        <requestParameter>
+            <field name="appId"/>
+            <field name="username"/>
+            <field name="deviceToken"/>
+            <field name="platform" 			type="platform_Type"        />				
+            <field name="socId" 			type="socId_Type"        />				
+            <field name="trackId"/>
+            <field name="x_sendCount"/>
+            <field name="x_isLastSend"/>
+            <field name="x_sendTimeUsed"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="push_updatearrived" id="11">
+        <requestParameter>
+            <field name="seq" type="seq_type"/>
+            <field name="appId" type="appId_type"/>
+            <field name="gameId" type="gameId_type"/>
+            <field name="receiverGame" type="receiverGame_type"/>
+            <field name="updateTime" type="updateTime_type"/>
+            <field name="username" type="username_type"/>
+            <field name="trackId"/>
+            <field name="x_sendCount"/>
+            <field name="x_isLastSend"/>
+            <field name="x_sendTimeUsed"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="startsyspush_ios" id="12">
+        <requestParameter>
+            <field name="appId"/>
+            <field name="username"/>
+            <field name="deviceToken"/>
+            <field name="trackId"/>
+            <field name="x_sendCount"/>
+            <field name="x_isLastSend"/>
+            <field name="x_sendTimeUsed"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="reportSingle" id="13">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"             />
+            <field name="username" type="username_type"/>
+            <field name="rptId" type="rptId_type"/>
+            <field name="platform" 			type="platform_Type"        />				
+            <field name="trackId"/>
+            <field name="x_sendCount"/>
+            <field name="x_isLastSend"/>
+            <field name="x_sendTimeUsed"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="feedback" id="14">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"             />
+            <field name="from" type="from_type"/>
+            <field name="to" type="to_type"/>
+            <field name="message" 			type="message_type"        />				
+            <field name="createTime" 			type="createTime_type"        />				
+            <field name="trackId"/>
+            <field name="x_sendCount"/>
+            <field name="x_isLastSend"/>
+            <field name="x_sendTimeUsed"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+</service>
+

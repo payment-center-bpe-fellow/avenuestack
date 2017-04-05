@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service name="db_config" id="4510001" IsTreeStruct="false" >
+
+    <type name="rowcount_type"             class="int"  code="1" />
+    <type name="proj_id_type"            class="string"  code="2"/>
+    <type name="domain_type"                 class="string"  code="3"/>
+    <type name="api_key_type"                class="string"  code="4"/>
+    <type name="secret_key_type"             class="string"  code="5"/>
+    <type name="insert_id_type" class="string" code="6"/>
+    <type name="id_type" class="string" code="7"/>
+    <type name="cnt_type" class="string" code="8"/>
+    <type name="area_open_num_type" class="string" code="9"/>
+    <type name="area_open_name_type" class="string" code="10"/>
+    <type name="group_open_num_type" class="string" code="11"/>
+    <type name="group_open_name_type" class="string" code="12"/>
+    <type name="channel_ids_type" class="string" code="13"/>
+    <type name="area_num_type" class="string" code="14"/>
+    <type name="area_name_type" class="string" code="15"/>
+    <type name="group_num_type" class="string" code="16"/>
+    <type name="group_name_type" class="string" code="17"/>
+    <type name="remark_type" class="string" code="18"/>
+
+    <message name="get_cdnkey" id="100">
+        <sql><![CDATA[
+            select domain,api_key,secret_key
+            from t_cdnkeys
+            where proj_id = :proj_id
+        ]]></sql>
+        <requestParameter>
+            <field name="proj_id"         type="proj_id_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="rowcount"     type="rowcount_type"/>
+            <field name="domain"             type="domain_type"/>
+            <field name="api_key"            type="api_key_type"/>
+            <field name="secret_key"         type="secret_key_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="update_cdnkey" id="101">
+        <sql><![CDATA[
+            update t_cdnkeys 
+            set domain=:domain,api_key=:api_key,secret_key=:secret_key,update_time=now()
+            where proj_id = :proj_id
+        ]]></sql>
+        <requestParameter>
+            <field name="proj_id"         type="proj_id_type"/>
+            <field name="domain"             type="domain_type"/>
+            <field name="api_key"            type="api_key_type"/>
+            <field name="secret_key"         type="secret_key_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="rowcount"     type="rowcount_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="create_cdnkey" id="102">
+        <sql><![CDATA[
+            insert t_cdnkeys (proj_id,domain,api_key,secret_key,create_time,update_time)
+            values(:proj_id,:domain,:api_key,:secret_key,now(),now())
+        ]]></sql>
+        <requestParameter>
+            <field name="proj_id"         type="proj_id_type"/>
+            <field name="domain"             type="domain_type"/>
+            <field name="api_key"            type="api_key_type"/>
+            <field name="secret_key"         type="secret_key_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="rowcount"     type="rowcount_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="create_group" id="110">
+        <sql><![CDATA[
+            insert t_groups ( proj_id, cmdb_groupid, area_open_num, area_open_name, group_open_num, group_open_name, channel_ids, 
+    area_num, area_name, group_num, group_name, remark, create_time, update_time )
+            values ( :proj_id, 0, :area_open_num, :area_open_name, :group_open_num, :group_open_name, :channel_ids, 
+    :area_num, :area_name, :group_num, :group_name, :remark, now(), now() )
+        ]]></sql>
+        <requestParameter>
+            <field name="proj_id"         type="proj_id_type"/>
+            <field name="area_open_num"  />
+            <field name="area_open_name"  />
+            <field name="group_open_num"  />
+            <field name="group_open_name"  />
+            <field name="channel_ids"  />
+            <field name="area_num"  />
+            <field name="area_name"  />
+            <field name="group_num"  />
+            <field name="group_name"  />
+            <field name="remark"  />
+        </requestParameter>
+        <responseParameter>
+            <field name="rowcount"     type="rowcount_type"/>
+            <field name="insert_id"     type="insert_id_type"/>
+        </responseParameter>
+    </message>
+    <message name="delete_group" id="111">
+        <sql><![CDATA[
+            delete from t_groups where proj_id = :proj_id and id = :id
+        ]]></sql>
+        <requestParameter>
+            <field name="proj_id"         type="proj_id_type"/>
+            <field name="id"         type="id_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="rowcount"     type="rowcount_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="get_group_total" id="113">
+        <sql><![CDATA[
+            select count(*) as cnt from t_groups where proj_id = :proj_id
+        ]]></sql>
+        <requestParameter>
+            <field name="proj_id"         type="proj_id_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="rowcount"     type="rowcount_type"/>
+            <field name="cnt"     type="cnt_type"/>
+        </responseParameter>
+    </message>
+</service>

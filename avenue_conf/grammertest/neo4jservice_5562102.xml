@@ -1,0 +1,653 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service name="neo4jservice" id="5562102" IsTreeStruct="false">
+
+    <type name="rowcount_type" class="int" code="100" />
+	<type name="tableIdx_type" class="string" code="1" />
+	<type name="username_type" class="string" code="2" />
+    <type name="username_array_type" class="array" itemType="username_type"/>
+	<type name="nickName_type" class="string" code="3" />
+	<type name="iconUrl_type" class="string" code="4" />
+	<type name="lvl_type" class="string" code="5" />
+	<type name="id_type" class="string" code="6" />
+	<type name="userData_type" class="string" code="7" />
+	<type name="isVirtual_type" class="int" code="8" />
+	<type name="createTime_type" class="string" code="9" />
+	<type name="updateTime_type" class="string" code="10" />
+	<type name="deviceToken_type" class="string" code="11" />
+	<type name="from_type" class="string" code="12" />
+	<type name="to_type" class="string" code="13" />
+	<type name="block_type" class="string" code="14" />
+
+	<type name="userinfo_type" class="struct" code="15">
+		<field name="username"         type="systemstring" />
+		<field name="nickName"         type="systemstring" />
+		<field name="iconUrl"         type="systemstring" />
+		<field name="userData"         type="systemstring" />
+		<field name="lvl"         type="systemstring" />
+		<field name="isVirtual"         type="int" />
+	</type>
+    <type name="userinfo_array_type" class="array" itemType="userinfo_type"/>
+
+    <type name="usernames_type" class="string" code="16" />
+
+	<type name="userinfofortalk_type" class="struct" code="17">
+		<field name="username"         type="systemstring" />
+		<field name="block"         type="systemstring" />
+		<field name="deviceToken"         type="systemstring" />
+	</type>
+    <type name="userinfofortalk_array_type" class="array" itemType="userinfofortalk_type"/>
+	<type name="shareSeq_type" class="int" code="18" />
+	<type name="readSeq_type" class="int" code="19" />
+
+	<type name="followinfo_type" class="struct" code="20">
+		<field name="from"         type="systemstring" />
+		<field name="to"         type="systemstring" />
+		<field name="deviceToken"         type="systemstring" />
+		<field name="readSeq"         type="int" />
+		<field name="shareSeq"         type="int" />
+		<field name="status"         type="int" />
+	</type>
+    <type name="followinfo_array_type" class="array" itemType="followinfo_type"/>
+
+    <type name="loginTime_type" class="string" code="21" />
+	<type name="status_type" class="int" code="22" />
+	<type name="gameId_type" class="int" code="23" />
+    <type name="saveToFile_type" class="string" code="24" />
+    <type name="saveToFileSplitter_type" class="string" code="25" />
+    <type name="circleId_type" class="string" code="26" />
+
+    <message name="getUser" id="1">
+        <sql><![CDATA[
+            match (u:User$tableIdx) where u.username = {username} 
+            return u.nickName, u.iconUrl, u.userData, u.lvl, u.isVirtual, u.deviceToken, u.block
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+			<field name="nickName"/>
+			<field name="iconUrl"/>
+			<field name="userData"/>
+			<field name="lvl"/>
+			<field name="isVirtual"/>
+			<field name="deviceToken"/>
+			<field name="block"/>
+		</responseParameter>
+	</message>
+	
+    <message name="insertUser" id="2">
+        <sql><![CDATA[
+            create (u:User$tableIdx {
+                username: {username}, 
+                nickName: {nickName},
+                iconUrl: {iconUrl},
+                userData: {userData},
+                deviceToken: {deviceToken},
+                lvl: {lvl},
+                isVirtual: {isVirtual},
+                shareSeq: 0,
+                createTime: {createTime},
+                updateTime: {updateTime}
+            } )
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+			<field name="nickName"/>
+			<field name="iconUrl"/>
+			<field name="userData"/>
+			<field name="deviceToken"/>
+			<field name="lvl"/>
+			<field name="isVirtual"/>
+			<field name="createTime"/>
+			<field name="updateTime"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="updateUser" id="3">
+        <sql><![CDATA[
+            match (u:User$tableIdx) where u.username = {username} 
+            set u.nickName = {nickName},
+                u.iconUrl = {iconUrl},
+                u.userData = {userData},
+                u.deviceToken = {deviceToken},
+                u.updateTime = {updateTime}
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+			<field name="nickName"/>
+			<field name="iconUrl"/>
+			<field name="userData"/>
+			<field name="deviceToken"/>
+			<field name="updateTime"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="createKnowns" id="4">
+        <sql><![CDATA[
+            match (u1:User$tableIdx {username:{from}}),(u2:User$tableIdx {username:{to}}) 
+            MERGE (u1)-[k:Knowns]->(u2)
+            on create set k.createTime = {createTime}
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="from"/>
+			<field name="to"/>
+			<field name="createTime"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="deleteKnowns" id="5">
+        <sql><![CDATA[
+            match (u1:User$tableIdx {username:{from} } )-[k:Knowns]->(u2:User$tableIdx {username:{to} } ) 
+            delete k
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="from"/>
+			<field name="to"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="updateFriendBlockInfo" id="6">
+        <sql><![CDATA[
+            match (u1:User$tableIdx {username:{from} } )-[k:Knowns]->(u2:User$tableIdx {username:{to} } ) 
+            set k.block = {block}
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="from"/>
+			<field name="to"/>
+			<field name="block"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="createFollows" id="7">
+        <sql><![CDATA[
+            match (u1:User$tableIdx {username:{from}}),(u2:User$tableIdx {username:{to}}) 
+            MERGE (u1)-[f:Follows]->(u2)
+            on create set f.readSeq = {readSeq}, f.createTime = {createTime}
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="from"/>
+			<field name="to"/>
+			<field name="readSeq" />
+			<field name="createTime"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="deleteFollows" id="8">
+        <sql><![CDATA[
+            match (u1:User$tableIdx {username:{from} } )-[f:Follows]->(u2:User$tableIdx {username:{to} } ) 
+            delete f
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="from"/>
+			<field name="to"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="queryFriends" id="9">
+        <sql><![CDATA[
+            match (:User$tableIdx {username:{username} } )-[:Knowns]->(u:User$tableIdx) 
+            return u.username, u.nickName, u.iconUrl, u.userData, u.lvl, u.isVirtual
+            order by u.lvl desc
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+            <field name="userinfo_array"/>
+		</responseParameter>
+	</message>
+
+    <message name="queryUsers" id="10">
+        <sql><![CDATA[
+            match (u:User$tableIdx)
+            where u.username in [ $usernames ]
+            return u.username, u.nickName, u.iconUrl, u.userData, u.lvl, u.isVirtual
+            order by u.lvl desc
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="usernames"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+            <field name="userinfo_array"/>
+		</responseParameter>
+	</message>
+
+    <message name="queryUsersForTalk" id="11">
+        <sql><![CDATA[
+            match (u:User$tableIdx) 
+            where u.username = {from} or u.username = {to} 
+            return u.username,u.block,u.deviceToken
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="from"/>
+			<field name="to"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+            <field name="list" type="userinfofortalk_array_type"/>
+		</responseParameter>
+	</message>
+
+    <message name="queryRelationsForTalk" id="12">
+        <sql><![CDATA[
+            match (u1:User$tableIdx {username:{from} } )-[k:Knowns]->(u2:User$tableIdx {username:{to} } ) 
+            return id(k) as id,k.block
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="from"/>
+			<field name="to"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+			<field name="id"/>
+			<field name="block"/>
+		</responseParameter>
+	</message>
+
+    <message name="clearDeviceToken" id="13">
+        <sql><![CDATA[
+            match (u:User$tableIdx) where u.username = {username} 
+            set u.deviceToken = {deviceToken}
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+			<field name="deviceToken"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="updateShareSeq" id="14">
+        <sql><![CDATA[
+            match (u:User$tableIdx) where u.username = {username} 
+            set u.shareSeq = {shareSeq}
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+			<field name="shareSeq" />
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="getShareSeq" id="15">
+        <sql><![CDATA[
+            match (u:User$tableIdx) where u.username = {username} 
+            return u.shareSeq
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+			<field name="shareSeq"/>
+		</responseParameter>
+	</message>
+
+    <message name="queryFollowsTo" id="16">
+        <sql><![CDATA[
+            match (u1:User$tableIdx)-[f:Follows]->(u2:User$tableIdx {username:{to}}) 
+            where f.readSeq < u2.shareSeq
+            return u1.username as from, u2.username as to,f.readSeq,u2.shareSeq,u1.deviceToken,u1.status
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="to"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+            <field name="followinfo_array"/>
+		</responseParameter>
+	</message>
+
+    <message name="queryFollowsFrom" id="17">
+        <sql><![CDATA[
+            match (u1:User$tableIdx {username:{from}})-[f:Follows]->(u2:User$tableIdx) 
+            where f.readSeq < u2.shareSeq
+            return u1.username as from, u2.username as to,f.readSeq,u2.shareSeq,u1.deviceToken,1 as status
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="from"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+            <field name="followinfo_array"/>
+		</responseParameter>
+	</message>
+
+    <message name="updateFollowReadSeq" id="18">
+        <sql><![CDATA[
+            match (u1:User$tableIdx {username:{from} } )-[f:Follows]->(u2:User$tableIdx {username:{to} } ) 
+            set f.readSeq = {readSeq}
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="from"/>
+			<field name="to"/>
+			<field name="readSeq" />
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="updateLoginStatus" id="19">
+        <sql><![CDATA[
+            match (u:User$tableIdx) where u.username = {username} 
+            set u.status = 1,
+                u.loginTime = {loginTime}
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+			<field name="loginTime"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="clearLoginStatus" id="20">
+        <sql><![CDATA[
+            match (u:User$tableIdx) where u.username = {username} 
+            set u.status = 0
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="updateDeviceToken" id="21">
+        <sql><![CDATA[
+            match (u:User$tableIdx) where u.username = {username} 
+            set u.deviceToken = {deviceToken}
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+			<field name="deviceToken"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="updateUserBlockInfo" id="22">
+        <sql><![CDATA[
+            match (u:User$tableIdx) where u.username = {username} 
+            set u.block = {block}
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+			<field name="block"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="addTestUser" id="50">
+        <sql><![CDATA[
+            merge (u:TestUser$tableIdx { username:{username}, gameId:{gameId} } )
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+			<field name="gameId"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="deleteTestUser" id="51">
+        <sql><![CDATA[
+            match (u:TestUser$tableIdx) where u.username = {username} and u.gameId = {gameId} 
+            delete u
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+			<field name="gameId"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="getalltestusers" id="52">
+        <sql><![CDATA[
+            match (u:TestUser$tableIdx) where u.gameId = {gameId} 
+            return u.username
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="gameId"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+            <field name="username_array"/>
+		</responseParameter>
+	</message>
+
+    <message name="queryPushUsersAll" id="53">
+        <sql><![CDATA[
+            match (u:User$tableIdx) 
+            where u.isVirtual = 0
+            return u.username,u.status,u.deviceToken
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="saveToFile"/>
+			<field name="saveToFileSplitter" default=","/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="queryPushUsersByLoginTime" id="54">
+        <sql><![CDATA[
+            match (u:User$tableIdx) 
+            where u.isVirtual = 0 and u.loginTime >= {loginTime}
+            return u.username,u.status,u.deviceToken
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="loginTime"/>
+			<field name="saveToFile"/>
+			<field name="saveToFileSplitter" default=","/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="queryLoginStatusAndDeviceToken" id="55">
+        <sql><![CDATA[
+            match (u:User$tableIdx) 
+            where u.username = {username}
+            return u.status,u.deviceToken
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+			<field name="status"/>
+			<field name="deviceToken"/>
+		</responseParameter>
+	</message>
+
+    <message name="createFollowCircle" id="56">
+        <sql><![CDATA[
+            match (u:User$tableIdx {username:{username}}),(c:Circle$tableIdx {circleId:{circleId}}) 
+            MERGE (u)-[f:Follows]->(c)
+            on create set f.createTime = {createTime}
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+			<field name="circleId"/>
+			<field name="createTime"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="deleteFollowCircle" id="57">
+        <sql><![CDATA[
+            match (u:User$tableIdx {username:{username} } )-[f:Follows]->(c:Circle$tableIdx {circleId:{circleId} } ) 
+            delete f
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+			<field name="circleId"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="createCircle" id="58">
+        <sql><![CDATA[
+            MERGE (c:Circle$tableIdx {circleId:{circleId}}) on create set c.createTime = {createTime}
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="circleId"/>
+			<field name="createTime"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="queryCircleUsersAll" id="59">
+        <sql><![CDATA[
+            match (u:User$tableIdx)-[f:Follows]->(c:Circle$tableIdx) 
+            where c.circleId = {circleId} and u.isVirtual = 0 
+            return u.username,u.status,u.deviceToken
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="circleId"/>
+			<field name="saveToFile"/>
+			<field name="saveToFileSplitter" default=","/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="queryCircleUsersByLoginTime" id="60">
+        <sql><![CDATA[
+            match (u:User$tableIdx)-[f:Follows]->(c:Circle$tableIdx) 
+            where c.circleId = {circleId} and u.isVirtual = 0 and u.loginTime >= {loginTime}
+            return u.username,u.status,u.deviceToken
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="circleId"/>
+			<field name="loginTime"/>
+			<field name="saveToFile"/>
+			<field name="saveToFileSplitter" default=","/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="getUserNickname" id="61">
+        <sql><![CDATA[
+            match (u:User$tableIdx) where u.username = {username} 
+            return u.nickName
+        ]]></sql>
+		<requestParameter>
+			<field name="tableIdx"/>
+			<field name="username"/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+			<field name="nickName"/>
+		</responseParameter>
+	</message>
+
+    <message name="queryallusers" id="100">
+        <sql><![CDATA[
+            match (u:User991002627) return u.username
+        ]]></sql>
+		<requestParameter>
+			<field name="saveToFile"/>
+			<field name="saveToFileSplitter" default=","/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+    <message name="queryallusersshareseq" id="101">
+        <sql><![CDATA[
+            match (u:User991002627) where u.shareSeq > 0 return u.username,u.shareSeq
+        ]]></sql>
+		<requestParameter>
+			<field name="saveToFile"/>
+			<field name="saveToFileSplitter" default=","/>
+		</requestParameter>
+		<responseParameter>
+            <field name="rowcount"/>
+		</responseParameter>
+	</message>
+
+</service>
+

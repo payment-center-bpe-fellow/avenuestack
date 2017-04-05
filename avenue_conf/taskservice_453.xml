@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service name="taskservice" id="453" IsTreeStruct="false" revision="1" desc="任务服务">
+
+    <type name="return_message_Type"         class="string"  code="900" desc="错误描述"/>
+
+    <type name="cur_source_type"             class="string"  code="100" desc="当前用户的来源 1=web 2=api"/>
+    <type name="cur_userid_type"             class="string"  code="101" desc="当前用户的用户id"/>
+    <type name="cur_username_type"           class="string"  code="102" desc="当前用户的用户名"/>
+    <type name="cur_proj_id_type"            class="string"  code="103" desc="当前用户所在的项目id"/>
+    <type name="id_type"                     class="string"  code="104" desc="一般指自动生成的编号"/>
+    <type name="name_type"                   class="string"  code="105" desc="名称"/>
+    <type name="start_type"                  class="int"     code="106" desc="开始位置,从0开始"/>
+    <type name="page_size_type"              class="int"     code="107" desc="每页记录数，默认为20"/>
+    <type name="total_type"                  class="int"     code="108" desc="总记录数"/>
+    <type name="keyword_type"                class="string"  code="109" desc="搜索关键字"/>
+    <type name="remark_type"                 class="string"  code="110" desc="备注"/>
+    <type name="device_ids_type"             class="string"  code="111" desc="设备id,多个用逗号隔开"/>
+    <type name="type_type"                   class="string"  code="112" desc=" job类别 1=脚本执行 2=服务端更新 3=服务端启停 ... 参见 t_jobmetas 表定义"/>
+    <type name="exec_type"                   class="string"  code="113"/>
+    <type name="args_type"                   class="string"  code="114" desc="脚本参数,json字符串数组，示例：[&quot;abc&quot;,&quot;123&quot;,&quot;mmm&quot;]"/>
+    <type name="path_type"                   class="string"  code="115" desc="脚本执行的环境路径,默认/tmp"/>
+    <type name="timeout_type"                class="string"  code="116" desc="脚本执行超时"/>
+    <type name="job_id_type"                 class="string"  code="117" desc="对应的job id"/>
+    <type name="params_type"                 class="string"  code="118" desc="job参数"/>
+    <type name="create_user_type"            class="string"  code="119"/>
+    <type name="exec_type_type"              class="string"  code="120" desc="1=脚本库 2=服务器已存在脚本"/>
+    <type name="send_notify_type"            class="string"  code="121" desc="1=发送 0=不发送"/>
+    <type name="notify_info_type"            class="string"  code="122" desc="通知信息，json对象，key为：channel,users"/>
+    <type name="source_dir_type"             class="string"  code="123"/>
+    <type name="action_type"                 class="string"  code="124"/>
+    <type name="files_type"                  class="string"  code="125" desc="格式为json对象数组，key为template,target_dir"/>
+    <type name="target_type_type"            class="string"  code="126"/>
+    <type name="target_dir_type"             class="string"  code="127"/>
+    <type name="is_job_type"                 class="string"  code="128" desc=" 1=根据job创建的任务 0=直接创建的任务"/>
+    <type name="state_type"                  class="string"  code="129" desc="状态 tbd"/>
+    <type name="started_type"                class="string"  code="130" desc="任务开始时间"/>
+    <type name="ended_type"                  class="string"  code="131" desc="任务结束时间"/>
+    <type name="code_type"                   class="string"  code="132" desc="任务执行的错误码"/>
+    <type name="output_type"                 class="string"  code="133"/>
+    <type name="start_time_type"             class="string"  code="134"/>
+    <type name="end_time_type"               class="string"  code="135"/>
+    <type name="step_id_type"                class="string"  code="136" desc="不传则默认为0,否则认为是编排任务的stepid"/>
+
+    <type name="taskinfo_type"               class="struct"  code="800">
+        <field name="id"                     type="systemstring"/>
+        <field name="name"                   type="systemstring"/>
+        <field name="type"                   type="systemstring" desc=" job类别 1=脚本执行 2=服务端更新 3=服务端启停 ... 参见 t_jobmetas 表定义"/>
+        <field name="remark"                 type="systemstring"/>
+        <field name="state"                  type="systemstring"/>
+        <field name="started"                type="systemstring"/>
+        <field name="ended"                  type="systemstring"/>
+        <field name="create_user"            type="systemstring"/>
+    </type>
+    <type name="taskinfo_array_type"         class="array"   itemType="taskinfo_type"/>
+
+    <type name="taskdeviceinfo_type"         class="struct"  code="801">
+        <field name="id"                     type="systemstring"/>
+        <field name="device_id"              type="systemstring"/>
+        <field name="ips"                    type="systemstring" desc="json对象数组，key为type(1=内网，2=外网),ip"/>
+        <field name="bind_info"              type="systemstring" desc="json对象，区组角色信息，json串, key为：area_name,group_name,role_name,path,remark"/>
+        <field name="state"                  type="systemstring" desc="执行结果 51=未开始 0=成功 1=进行中 2=失败 6=超时"/>
+        <field name="started"                type="systemstring" desc="任务开始行时间"/>
+        <field name="ended"                  type="systemstring" desc="任务结束时间"/>
+    </type>
+    <type name="taskdeviceinfo_array_type"   class="array"   itemType="taskdeviceinfo_type"/>
+
+    <type name="batchstepinfo_type"          class="struct"  code="802">
+        <field name="id"                     type="systemstring" desc="子作业id，批处理不可重复嵌套"/>
+        <field name="type"                   type="systemstring" desc=" job类别 1=脚本执行 2=服务端更新 3=服务端启停 ... 参见 t_jobmetas 表定义"/>
+        <field name="name"                   type="systemstring"/>
+        <field name="params"                 type="systemstring"/>
+        <field name="success"                type="systemstring" desc=" 作业执行成功后的处理方式： 0=继续，1=终止，2=待用户确认"/>
+        <field name="error"                  type="systemstring" desc=" 作业执行失败后的处理方式： 0=继续，1=终止，2=待用户确认"/>
+        <field name="seq"                    type="systemstring" desc="执行seq，必须大于0"/>
+        <field name="prev_seqs"              type="systemstring" desc="上一步seqs, 0为开始"/>
+        <field name="next_seqs"              type="systemstring" desc="下一步seqs，0为结束"/>
+        <field name="success_wait"           type="systemstring" desc="作业等待时间,单位秒，只允许0-600秒，默认0"/>
+        <field name="error_wait"             type="systemstring" desc="作业等待时间,单位秒，只允许0-600秒，默认0"/>
+        <field name="state"                  type="systemstring"/>
+        <field name="started"                type="systemstring" desc="任务开始行时间"/>
+        <field name="ended"                  type="systemstring" desc="任务结束时间"/>
+        <field name="code"                   type="systemstring" desc="任务执行错误码, 用在非主机任务"/>
+        <field name="output"                 type="systemstring" desc="任务输出, 用在非主机任务"/>
+    </type>
+    <type name="batchstepinfo_array_type"    class="array"   itemType="batchstepinfo_type"/>
+
+    <message name="get_task_list" id="100" desc="任务列表">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="start"              type="start_type"/>
+            <field name="page_size"          type="page_size_type"/>
+            <field name="keyword"            type="keyword_type"/>
+            <field name="type"               type="type_type"/>
+            <field name="is_job"             type="is_job_type"/>
+            <field name="start_time"         type="start_time_type"/>
+            <field name="end_time"           type="end_time_type"/>
+            <field name="create_user"        type="create_user_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="total"              type="total_type"/>
+            <field name="data"               type="taskinfo_array_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="get_task_detail" id="101" desc="任务明细">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="id"                 type="id_type"/>
+            <field name="step_id"            type="step_id_type" desc="不传则默认为0,否则认为是编排任务的step_id"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="name"               type="name_type"/>
+            <field name="job_id"             type="job_id_type"/>
+            <field name="type"               type="type_type"/>
+            <field name="params"             type="params_type"/>
+            <field name="send_notify"        type="send_notify_type"/>
+            <field name="notify_info"        type="notify_info_type"/>
+            <field name="remark"             type="remark_type"/>
+            <field name="state"              type="state_type"/>
+            <field name="started"            type="started_type"/>
+            <field name="ended"              type="ended_type"/>
+            <field name="create_user"        type="create_user_type"/>
+            <field name="code"               type="code_type"/>
+            <field name="output"             type="output_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="get_task_batchdetail" id="102" desc="获取批处理作业详情">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="id"                 type="id_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="name"               type="name_type"/>
+            <field name="type"               type="type_type"/>
+            <field name="steps"              type="batchstepinfo_array_type"/>
+            <field name="remark"             type="remark_type"/>
+            <field name="state"              type="state_type"/>
+            <field name="started"            type="started_type"/>
+            <field name="ended"              type="ended_type"/>
+            <field name="create_user"        type="create_user_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="get_task_device_list" id="103" desc="每个设备上的执行明细">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="id"                 type="id_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="data"               type="taskdeviceinfo_array_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="get_task_device_output" id="104" desc="设备上的输出">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="id"                 type="id_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+            <field name="code"               type="code_type"/>
+            <field name="output"             type="output_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="exec_script" id="105" code="120" desc="新建执行脚本任务">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="name"               type="name_type"/>
+            <field name="exec_type"          type="exec_type_type" desc=" 1=脚本库 2=服务器已存在脚本"/>
+            <field name="exec"               type="exec_type" desc="脚本id(t_scripts.id)或已存在的脚本路径"/>
+            <field name="args"               type="args_type"/>
+            <field name="path"               type="path_type"/>
+            <field name="timeout"            type="timeout_type"/>
+            <field name="device_ids"         type="device_ids_type"/>
+            <field name="remark"             type="remark_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="exec_dist" id="106" desc="新建文件分发任务">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="name"               type="name_type"/>
+            <field name="source_dir"         type="source_dir_type"/>
+            <field name="files"              type="files_type" desc="多个文件用逗号隔开"/>
+            <field name="device_ids"         type="device_ids_type"/>
+            <field name="remark"             type="remark_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="exec_collect" id="107" desc="创建文件收集任务">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="name"               type="name_type"/>
+            <field name="files"              type="files_type" desc="多个文件用逗号隔开"/>
+            <field name="device_ids"         type="device_ids_type"/>
+            <field name="target_type"        type="target_type_type"/>
+            <field name="target_dir"         type="target_dir_type"/>
+            <field name="remark"             type="remark_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="exec_job" id="108" desc="执行简单job">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="job_id"             type="job_id_type"/>
+            <field name="params"             type="params_type" desc="格式为json对象,key为tbd_fields里的key"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="exec_batchjob" id="109" desc="执行批处理job">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="job_id"             type="job_id_type"/>
+            <field name="params"             type="params_type" desc="格式为json对象,key为每个step的id, 值为每个step对应的job的json对象"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="retry_device" id="110" desc="重试设备上的失败任务">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="id"                 type="id_type" desc="传入t_taskdevices.id"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="retry_task" id="111" desc="重试任务(如果需到设备上执行，则重试所有失败的设备)">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="id"                 type="id_type" desc="传入t_tasks.id"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="comfirm_task_step" id="112" desc="确认批处理任务步骤的下一步">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="id"                 type="id_type" desc="传入t_tasksteps.id"/>
+            <field name="action"             type="action_type" desc=" 操作 1=继续  2=终止  3=重试一次本步骤"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+    <message name="rollback_task" id="113" desc="回滚更新(包括成功的和失败的都做回滚)">
+        <requestParameter>
+            <field name="cur_source"         type="cur_source_type"/>
+            <field name="cur_userid"         type="cur_userid_type"/>
+            <field name="cur_username"       type="cur_username_type"/>
+            <field name="cur_proj_id"        type="cur_proj_id_type"/>
+
+            <field name="id"                 type="id_type" desc="传入t_tasks.id"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="return_message"     type="return_message_type"/>
+        </responseParameter>
+    </message>
+
+</service>

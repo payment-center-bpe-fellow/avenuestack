@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service name="userCall" id="59532" IsTreeStruct ="false">
+	<type name="s_feedback" class="string" code="1" desc=""/>
+	<type name="s_user_id" class="string" code="2" desc=""/>
+	
+	<message name="addFeedback" id="1" desc="增加用户反馈">
+		<requestParameter>
+			<field name="feedback" type="s_feedback" />
+			<field name="user_id" type="s_user_id" />
+		</requestParameter>
+		<responseParameter>
+		</responseParameter>
+	</message>
+	
+</service>

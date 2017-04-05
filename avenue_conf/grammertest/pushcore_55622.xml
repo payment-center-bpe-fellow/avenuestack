@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service name="pushcore" id="55622" IsTreeStruct="false">
+
+	<type name="appId_Type" class="int" code="1" />
+	<type name="areaId_Type" class="int" code="2" />
+	<type name="clientIp_Type" class="string" code="4" />
+	<type name="deviceId_Type" class="string" code="7" />
+    <type name="createTime_Type"   		 class="string" code="9"/>
+	<type name="extInfo_Type" class="string" code="10" />
+    <type name="messageType_Type" 	   	 class="int"    code="15"/>
+	<type name="platform_Type" class="int" code="16" />
+	<type name="roleName_Type" class="string" code="20" />
+	<type name="socId_Type" class="string" code="24" />
+	<type name="userId_Type" class="string" code="30" />
+	<type name="title_Type"     class="string" code="39" />
+	<type name="content_Type"     class="string" code="40" />
+	<type name="data_Type"        class="string" code="41" />
+	<type name="receiverType_Type" class="int"       code="42" />
+	<type name="receiver_Type"     class="string"    code="43" />
+	<type name="generator_Type" class="int"    code="48" />
+	<type name="messageId_Type" class="string" code="49" />
+	<type name="styleId_Type" class="int" code="51" />
+	<type name="schedule_type" 		class="string" 	code="52" />
+	<type name="rptIds_type" 		class="string" 	code="57"/>
+    <type name="gameId_type" 		class="int" 	code="58"/>
+	<type name="message_Type"     class="string" code="59" />
+	<type name="extraInfo_Type"     class="string" code="60" />
+	<type name="keepHours_Type"     class="int" code="61" />
+	<type name="pushId_Type"     class="string" code="62" />
+	<type name="rowCount_Type"     class="int" code="63" />
+	<type name="expire_Type"     class="string" code="64" />
+	<type name="fromTime_Type"     class="string" code="65" />
+	<type name="rptId_type" 		class="string" 	code="66"/>
+
+	<message name="setUserInfo" id="1">
+		<requestParameter>
+			<field name="appId" type="appId_Type" />
+			<field name="areaId" type="areaId_Type" />
+			<field name="userId" type="userId_Type" />
+			<field name="roleName" type="roleName_Type" />
+			<field name="extInfo" type="extInfo_Type" />
+			<field name="platform" type="platform_Type" />
+			<field name="deviceId" type="deviceId_Type" />
+			<field name="socId" type="socId_Type" />
+			<field name="clientIp" type="clientIp_Type" />
+		</requestParameter>
+		<responseParameter>
+		</responseParameter>
+	</message>
+
+	<message name="userDisconnected" id="2">
+		<requestParameter>
+			<field name="appId" type="appId_Type" />
+			<field name="deviceId" type="deviceId_Type" />
+			<field name="socId" type="socId_Type" />
+		</requestParameter>
+	</message>
+
+	<message name="clearUserInfo" id="3">
+		<requestParameter>
+			<field name="appId" type="appId_Type" />
+			<field name="userId" type="userId_Type" />
+			<field name="deviceId" type="deviceId_Type" />
+		</requestParameter>
+		<responseParameter>
+		</responseParameter>
+	</message>
+	
+	<message name="reportDevice" id="4">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"             />
+            <field name="deviceId" 			type="deviceId_Type"          />
+            <field name="rptIds" 			type="rptIds_Type"            />
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+	<message name="pushMessage" id="5">
+        <requestParameter>
+            <field name="messageId" 		type="messageId_Type"           />
+            <field name="messageType"       type="messageType_Type"         />
+			<field name="generator"         type="generator_Type"        />
+            <field name="title" 			type="title_Type"             />
+            <field name="content" 			type="content_Type"             />
+            <field name="data" 			    type="data_Type"                />
+			<field name="styleId" 		    type="styleId_Type"        />
+			<field name="receiverType" 		type="receiverType_Type"        />
+			<field name="receiver" 			type="receiver_Type"          />
+			<field name="userId" 			type="userId_Type"        />
+			<field name="areaId" 			type="areaId_Type"          />
+			<field name="createTime" 		type="createTime_Type"        />
+			<field name="schedule"          type="schedule_type"       />
+			<field name="socId" 			type="socId_Type"             />
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+	<message name="clearjob" id="1000">
+        <requestParameter>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="gendevicetask" id="1001">
+        <requestParameter>
+            <field name="appId"/>
+            <field name="gameId"/>
+            <field name="messageType"/>			
+            <field name="message"/>
+            <field name="extraInfo"/>
+            <field name="keepHours"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="startdevicepush" id="1002">
+        <requestParameter>
+            <field name="deviceId" type="deviceId_type"/>
+            <field name="socId" type="socId_type"/>
+            <field name="fromTime" type="fromTime_type"/>
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+    <message name="getpushinfo" id="1003">
+        <requestParameter>
+            <field name="pushId" type="pushId_type"/>
+        </requestParameter>
+        <responseParameter>
+            <field name="rowCount"/>
+            <field name="pushId" type="pushId_type"/>
+            <field name="appId"/>
+            <field name="gameId"/>
+            <field name="data"/>			
+            <field name="expire"/>
+        </responseParameter>
+    </message>
+
+	<message name="reportDeviceSingle" id="1004">
+        <requestParameter>
+            <field name="appId" 			type="appId_Type"             />
+            <field name="deviceId" 			type="deviceId_Type"          />
+            <field name="rptId" 			type="rptId_Type"            />
+        </requestParameter>
+        <responseParameter>
+        </responseParameter>
+    </message>
+
+</service>
+
