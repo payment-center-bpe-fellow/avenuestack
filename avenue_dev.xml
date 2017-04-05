@@ -6,10 +6,7 @@
 	<AsyncLogWithFieldName>true</AsyncLogWithFieldName>
     <AsyncLogArray>2</AsyncLogArray>
     
-    <ServerSos isSps="1" isEncrypted="1" reverseServiceIds="3">
-        <ReverseIp>1.11.111.1</ReverseIp> 
-        <ReverseIp>2.11.111.1</ReverseIp> 
-    </ServerSos>    
+
 
     <SosList>
         <ServiceId>451</ServiceId>

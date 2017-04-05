@@ -1,7 +1,7 @@
 apply plugin: 'java'
 apply plugin: 'maven'
 
-version = '1.0'
+version = '1.0.0'
 sourceCompatibility = 1.6
 targetCompatibility = 1.6
 
@@ -34,8 +34,8 @@ uploadArchives {
                 authentication(userName: "xxxx", password: "yyyy")
             }
             pom.version = "$version"
-            pom.artifactId = "avenuestatck"
-            pom.groupId = "avenuestatck"
+            pom.artifactId = "avenuestack"
+            pom.groupId = "avenuestack"
         }
     }
 }
