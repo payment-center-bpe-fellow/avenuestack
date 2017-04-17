@@ -62,6 +62,7 @@ public class Sos implements Sos4Netty,Actor {
 
     String reverseServiceIds = "0";
     boolean hasReverseServiceIds = false;
+    String spsDisconnectNotifyTo = "55605:111";
     HashSet<String> reverseIps = null;
     boolean pushToIpPort = false;
     HashMap<String,String> connsAddrMap = new HashMap<String,String>();
@@ -146,7 +147,7 @@ public class Sos implements Sos4Netty,Actor {
 	
 	        s = cfgNode.attributeValue("spsDisconnectNotifyTo","");
 	        if( !s.equals("") ) { 
-	            router.parameters.put("spsDisconnectNotifyTo",s);
+	            spsDisconnectNotifyTo = s;
 	        } 
 	
 	        s = cfgNode.attributeValue("pushToIpPort","");
@@ -181,15 +182,7 @@ public class Sos implements Sos4Netty,Actor {
 				}
 	            log.info("reverseIps="+ArrayHelper.mkString(reverseIps,","));
 	        }
-	        
-			/*
-	        val reverseIpList = (cfgNode \ "ReverseIp").map(_.text).toList;
-	        if( reverseIpList.size > 0 ) {
-	            reverseIps = new HashSet[String]();
-	            reverseIpList.foreach( reverseIps.add );
-	            log.info("reverseIps="+reverseIps.mkString(","));
-	        }
-	        */
+
 
         }
 
@@ -330,7 +323,7 @@ public class Sos implements Sos4Netty,Actor {
             }
 
             if( pushToAny ) {
-                if(allConns.contains(connId)) allConns.remove(connId); // todo
+                if(allConns.contains(connId)) allConns.remove(connId);
             }
 
             if( pushToIp) {
@@ -353,10 +346,9 @@ public class Sos implements Sos4Netty,Actor {
     }
 
     public void notifyDisconnected(String connId) {
-        String notifyTo = router.getConfig("spsDisconnectNotifyTo","55605:111");
-        if( notifyTo.equals("0:0") ) return;
+        if( spsDisconnectNotifyTo.equals("0:0") ) return;
         int sequence = generateSequence();
-        String[] notifyInfo = notifyTo.split(":");
+        String[] notifyInfo = spsDisconnectNotifyTo.split(":");
         AvenueData data = new AvenueData(
             AvenueCodec.TYPE_REQUEST,
             Integer.parseInt(notifyInfo[0]),
@@ -502,7 +494,10 @@ public class Sos implements Sos4Netty,Actor {
 
         if( v instanceof RawResponse ) {
         	RawResponse rawRes = (RawResponse)v;
-        	reply(rawRes.data,rawRes.connId);
+            String serviceIdMsgId = rawRes.data.serviceId + ":" + rawRes.data.msgId;
+            if( !in(spsDisconnectNotifyTo,serviceIdMsgId) ) { // sent by sos itself
+                reply(rawRes.data,rawRes.connId);
+            }
             return;
         }
 
@@ -893,6 +888,13 @@ public class Sos implements Sos4Netty,Actor {
         	return "0.0.0.0";
     }
 
+    boolean in(String ss,String s) {
+    	String t = ",";
+        if( ss == null || ss == "" ) return false;
+        if( s == null || s == "" ) return true;
+        return (t+ss+t).indexOf(t+s+t) >= 0;
+    }
+
     AvenueData decode(ByteBuffer bb,String connId) {
     	AvenueData data = null;
         if( isEncrypted ) {
@@ -905,7 +907,7 @@ public class Sos implements Sos4Netty,Actor {
                 }
 
                 String serviceIdMsgId = data.serviceId + ":" + data.msgId;
-                if( key == null && serviceIdMsgId != shakeHandsServiceIdMsgId && serviceIdMsgId.equals("0:0")) { // heartbeat
+                if( key == null && !in(shakeHandsServiceIdMsgId,serviceIdMsgId) && serviceIdMsgId.equals("0:0")) { // heartbeat
                     log.error("decode error, not shakehanded,service="+data.serviceId+",msgId="+data.msgId);
                     throw new RuntimeException("not shakehanded");
                 }
@@ -920,11 +922,11 @@ public class Sos implements Sos4Netty,Actor {
         if( isEncrypted ) {
             String key = aesKeyMap.get(connId);
             String serviceIdMsgId = data.serviceId + ":" + data.msgId;
-            if( key == null && serviceIdMsgId != shakeHandsServiceIdMsgId ) {
+            if( key == null && !in(shakeHandsServiceIdMsgId,serviceIdMsgId)  ) {
                 log.error("encode error, not shakehanded,service="+data.serviceId+",msgId="+data.msgId);
                 return null;
             }
-            if( serviceIdMsgId == shakeHandsServiceIdMsgId ) key = null;
+            if( in(shakeHandsServiceIdMsgId,serviceIdMsgId)  ) key = null;
             bb = AvenueCodec.encode(data,key);
         } else {
             bb = AvenueCodec.encode(data);

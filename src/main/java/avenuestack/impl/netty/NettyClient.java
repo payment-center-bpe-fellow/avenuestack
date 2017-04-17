@@ -2,6 +2,7 @@ package avenuestack.impl.netty;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -21,6 +22,7 @@ import org.jboss.netty.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import avenuestack.impl.util.ArrayHelper;
 import avenuestack.impl.util.NamedThreadFactory;
 import avenuestack.impl.util.QuickTimer;
 import avenuestack.impl.util.QuickTimerEngine;
@@ -56,20 +58,18 @@ public class NettyClient { // with Dumpable
     ClientBootstrap bootstrap;
     ChannelHandler channelHandler;
 
-    String[] addrs;
-    ConcurrentHashMap<Integer,TimeoutInfo> dataMap = new ConcurrentHashMap<Integer,TimeoutInfo>();
-
-    String[] channelAddrs; // domain name array
-    Channel[] channels; // channel array
-    String[] channelIds; // connId array
-    HashMap<String,Channel> channelsMap = new HashMap<String,Channel>(); // map for special use
-    ReentrantLock lock = new ReentrantLock(false);
-
     String[] guids; // guid array
 
+    AddrInfo[] addrs = null;
+    ConnInfo[] allConns = null;
+    HashMap<String,Channel> channelsMap = new HashMap<String,Channel>(); // map for special use
     int nextIdx = 0;
-    AtomicBoolean connected = new AtomicBoolean();
+    ReentrantLock lock = new ReentrantLock(false);
 
+    AtomicInteger portIdx;
+    ConcurrentHashMap<Integer,TimeoutInfo> dataMap = new ConcurrentHashMap<Integer,TimeoutInfo>();
+
+    AtomicBoolean connected = new AtomicBoolean();
     AtomicBoolean shutdown = new AtomicBoolean();
 
     NamedThreadFactory bossThreadFactory;
@@ -81,15 +81,161 @@ public class NettyClient { // with Dumpable
     boolean useInternalQte = true;
     int qteTimeoutFunctionId = 0;
 
-    AtomicInteger portIdx;
+    public NettyClient(Soc4Netty soc,String addrstr) {
+    	this.soc = soc;
+        this.addrstr = addrstr;
+    }
+    
+    String uniqueAddrs(String s) {
+        if( s.equals("") ) return s;
+        String[] ss = s.split(",");
+        LinkedHashSet<String> map = new LinkedHashSet<String>();
+        for( String k : ss ) map.add(k);
+        return ArrayHelper.mkString(map,",");
+    }
 
-    ChannelFuture[] futures;
-    long[] futuresStartTime;
-    ReentrantLock futureLock = new ReentrantLock(false);
+    String addrsToString()  {
+    	StringBuilder b = new StringBuilder();
+        for( AddrInfo ai : addrs) {
+            if( b.length() > 0 ) b.append(",");
+            b.append(ai.addr+":"+ai.enabled);
+        }
+        return b.toString();
+    }
+
+    AddrInfo[] genAddrInfos(String s) {
+    	String us = uniqueAddrs(s);
+        if( us.equals("") ) return new AddrInfo[0];
+        String[] ss = us.split(",");
+        AddrInfo[] aa = new AddrInfo[ss.length];
+        for( int i = 0 ; i < aa.length ; ++ i) aa[i] = new AddrInfo(ss[i]);
+        return aa;
+    }
+
+    boolean contains(String[] ss, String s) {
+    	for( String k : ss ) {
+    		if( k.equals(s) ) return true;
+    	}
+    	return false;
+    }
+    
+    public void reconfig(String addrstr) {
+        String us = uniqueAddrs(addrstr);
+        String[] us_array = null;
+        if( us.equals("") ) us_array = new String[0]; 
+        else us_array = us.split(",");
+        
+        // val add = us_array.filter(s => addrs.filter(_.addr == s).size == 0 );
+
+        ArrayList<String> addlist = new ArrayList<String>();
+        for(String s:us_array) {
+        	boolean found = false;
+        	for(AddrInfo ai:addrs) {
+        		if( ai.addr.equals(s)) {
+        			found = true;
+        		}
+        	}
+        	if( !found ) addlist.add(s);
+        }
+        String[] add = ArrayHelper.toStringArray(addlist);
+
+        lock.lock();
+        try {
+           AddrInfo[] new_addrs = addrs;
+           ConnInfo[] new_allConns = allConns;
+
+           if( add.length > 0 ) {
+               new_addrs = new AddrInfo[addrs.length + add.length];
+               for(int i = 0; i < addrs.length; ++i  ) new_addrs[i] = addrs[i];
+               for(int i = 0; i < add.length; ++i ) new_addrs[addrs.length+i] = new AddrInfo(add[i]);
+               new_allConns = new ConnInfo[new_addrs.length*connSizePerAddr]; // 创建新数组,只扩大不缩小
+               for( ConnInfo connInfo : allConns ) {
+                   int idx = connInfo.hostidx + connInfo.connidx * new_addrs.length; // 复制到新位置
+                   new_allConns[idx] = connInfo;
+               }
+           }
+
+           for( int idx = 0; idx < new_addrs.length ; ++ idx) {
+                if( contains(us_array,new_addrs[idx].addr) ) new_addrs[idx].enabled = true;
+                else new_addrs[idx].enabled = false;
+           }
+
+           for( int idx = 0; idx < new_allConns.length; ++idx ) { // 已存在的地址可能需要修改状态
+        	   	if( new_allConns[idx] == null ) continue; 
+                ConnInfo connInfo = new_allConns[idx];
+
+                if( contains(us_array,connInfo.addr) ) { // 地址存在
+                    if( !connInfo.enabled.get()) { // 之前被设置禁止了需重新打开；否则什么也不做
+
+                        connInfo.enabled.set(true);
+
+                        if( connInfo.connId == null ) { // 连接已断开
+                            String[] ss = connInfo.addr.split(":");
+                            String host = ss[0];
+                            int port = Integer.parseInt( ss[1] );
+                            ChannelFuture future = null;
+                            if( startPort == -1 ) {
+                                future = bootstrap.connect(new InetSocketAddress(host,port));
+                            } else {
+                                future = bootstrap.connect(new InetSocketAddress(host,port),new InetSocketAddress(portIdx.getAndIncrement()));
+                                if( portIdx.get() >= 65535 ) portIdx.set(1025);
+                            }
+
+                            final ConnInfo fConn = new_allConns[idx];
+                            future.addListener( new ChannelFutureListener() {
+                                public void operationComplete(ChannelFuture future) {
+                                    onConnectCompleted(future,fConn);
+                                }
+                            } );
+                        }
+                    
+                    } 
+                } else { // 地址不存在
+                    connInfo.enabled.set(false); // 设置为false就可以，连接断开重连会检查此标志；但是若连接不断开不会自动断开
+                }
+
+           }
+
+           if( add.length > 0 ) {
+               for( int idx = 0; idx < new_allConns.length; ++idx ) { // 新增的地址需建连接
+            	   if( new_allConns[idx] != null ) continue;
+                   int hostidx = idx % new_addrs.length;
+                   int connidx = idx / new_addrs.length;
+                   String addr = new_addrs[hostidx].addr;
+                   String[] ss = addr.split(":");
+                   String host = ss[0];
+                   int port = Integer.parseInt( ss[1] );
+                   new_allConns[idx] = new ConnInfo( addr , hostidx, connidx, guids[connidx] );
+
+                   ChannelFuture future = null;
+                   if( startPort == -1 ) {
+                       future = bootstrap.connect(new InetSocketAddress(host,port));
+                   } else {
+                       future = bootstrap.connect(new InetSocketAddress(host,port),new InetSocketAddress(portIdx.getAndIncrement()));
+                       if( portIdx.get() >= 65535 ) portIdx.set(1025);
+                   }
+
+                   final ConnInfo fConn = new_allConns[idx];
+                   future.addListener( new ChannelFutureListener() {
+                	   public void operationComplete(ChannelFuture future) {
+                           onConnectCompleted(future,fConn);
+                       }
+                   } );
+
+               }
+
+               addrs = new_addrs;
+               allConns = new_allConns;
+           }
+
+        }	finally {
+            lock.unlock();
+        }
+    }
 
     void dump() {
 
-        log.info("--- addrstr="+addrstr);
+        log.info("--- addrstr="+addrsToString());
 
         StringBuilder buff = new StringBuilder();
 
@@ -98,15 +244,16 @@ public class NettyClient { // with Dumpable
         buff.append("bossExecutor.getQueue.size=").append(bossExecutor.getQueue().size()).append(",");
         buff.append("workerExecutor.getPoolSize=").append(workerExecutor.getPoolSize()).append(",");
         buff.append("workerExecutor.getQueue.size=").append(workerExecutor.getQueue().size()).append(",");
-        buff.append("channels.size=").append(channels.length).append(",");
+        buff.append("channels.size=").append(allConns.length).append(",");
 
         int connectedCount = 0 ;
-        for(Channel c:channels) {
-        	if( c != null ) connectedCount++;
+        for(ConnInfo c:allConns) {
+        	if( c != null && c.ch != null ) connectedCount++;
         }
 
         buff.append("connectedCount=").append(connectedCount).append(",");
         buff.append("dataMap.size=").append(dataMap.size()).append(",");
+        buff.append("channelsMap.size=").append(channelsMap.size()).append(",");
 
         log.info(buff.toString());
 
@@ -115,16 +262,11 @@ public class NettyClient { // with Dumpable
 
     void init() {
 
-        addrs = addrstr.split(",");
-        channelAddrs = new String[addrs.length*connSizePerAddr]; // domain name array
-        channels = new Channel[addrs.length*connSizePerAddr]; // channel array
-        channelIds = new String[addrs.length*connSizePerAddr]; // connId array
         guids = new String[connSizePerAddr]; // guid array
-
+    	addrs = genAddrInfos(addrstr);
+        allConns = new ConnInfo[addrs.length*connSizePerAddr];
         portIdx = new AtomicInteger(startPort);
 
-        futures = new ChannelFuture[addrs.length*connSizePerAddr];
-        futuresStartTime = new long[addrs.length*connSizePerAddr];
         
         channelHandler = new ChannelHandler(this);
 
@@ -179,16 +321,21 @@ public class NettyClient { // with Dumpable
         for( int connidx = 0 ; connidx < connSizePerAddr; ++connidx ) 
             guids[connidx] = java.util.UUID.randomUUID().toString().replaceAll("-", "").toUpperCase();
 
+    }
+    
+    void start() {
+    	
         for(int hostidx = 0; hostidx < addrs.length; ++ hostidx) {
-
-            String[] ss = addrs[hostidx].split(":");
+        	
+        	String addr = addrs[hostidx].addr;
+            String[] ss = addr.split(":");
             String host = ss[0];
             int port = Integer.parseInt(ss[1]);
 
             for( int connidx  = 0 ; connidx < connSizePerAddr ; ++connidx ) {
 
-                int idx = hostidx + connidx * addrs.length;
-                channelAddrs[idx] = addrs[hostidx];
+                final int idx = hostidx + connidx * addrs.length;
+                allConns[idx] = new ConnInfo( addr , hostidx, connidx, guids[connidx] );
 
                 ChannelFuture future = null;
                 if( startPort == -1 ) {
@@ -197,29 +344,26 @@ public class NettyClient { // with Dumpable
                     future = bootstrap.connect(new InetSocketAddress(host,port),new InetSocketAddress(portIdx.getAndIncrement()));
                     if( portIdx.get() >= 65535 ) portIdx.set(1025);
                 }
-                
-                final int f_hostidx = hostidx;
-                final int f_connidx = connidx;
+
                 future.addListener( new ChannelFutureListener() {
                     public void operationComplete(ChannelFuture future) {
-                        onConnectCompleted(future,f_hostidx,f_connidx);
+                        onConnectCompleted(future,allConns[idx]);
                     }
                 } );
 
                 if( waitForAllConnected ) {
 
-                    futureLock.lock();
+                	lock.lock();
                     try {
-                        //val idx = hostidx + connidx * addrs.size
-                        futures[idx] = future;
-                        futuresStartTime[idx] = System.currentTimeMillis();
-                        }	finally {
-                            futureLock.unlock();
-                        }
+                    	allConns[idx].future = future;
+                    	allConns[idx].futureStartTime = System.currentTimeMillis();
+                    }	finally {
+                    	lock.unlock();
+                    }
 
-                        // one by one
-                        if( connectOneByOne )
-                            future.awaitUninterruptibly(connectTimeout, TimeUnit.MILLISECONDS);
+                    // one by one
+                    if( connectOneByOne )
+                        future.awaitUninterruptibly(connectTimeout, TimeUnit.MILLISECONDS);
 
                 }
             }
@@ -240,33 +384,33 @@ public class NettyClient { // with Dumpable
 
                 if( !shutdown.get() ) {
 
-                    futureLock.lock();
+                	lock.lock();
                     try {
 
                         t = System.currentTimeMillis();
-                        for(int i = 0 ; i < futures.length; ++i ) {
-                        	 if( !futures[i].isDone() ) {
-                                 if( ( t - futuresStartTime[i] ) >= (connectTimeout + 2000) ) {
+                        for(int i = 0 ; i < allConns.length; ++i ) {
+                        	 if( !allConns[i].future.isDone() ) {
+                                 if( ( t - allConns[i].futureStartTime ) >= (connectTimeout + 2000) ) {
                                      log.error("connect timeout, cancel manually, idx="+i); // sometimes connectTimeoutMillis not work!!!
-                                     futures[i].cancel();
+                                     allConns[i].future.cancel();
                                  }
                         	 }
                         }
 
-                        }	finally {
-                            futureLock.unlock();
-                        }
+                    }	finally {
+                    	lock.unlock();
+                    }
 
                 }
 
             }
 
-            for(int i = 0 ;i <  futures.length; ++i ) {
-                futures[i] = null;
+            for(int i = 0 ;i <  allConns.length; ++i ) {
+            	allConns[i].future = null;
             }
 
             long endTs = System.currentTimeMillis();
-            log.info("waitForAllConnected finished, connectedCount="+connectedCount()+", channels.size="+channels.length+", ts="+(endTs-startTs)+"ms");
+            log.info("waitForAllConnected finished, connectedCount="+connectedCount()+", channels.size="+allConns.length+", ts="+(endTs-startTs)+"ms");
 
         } else {
 
@@ -283,7 +427,7 @@ public class NettyClient { // with Dumpable
 
         }
 
-        log.info("netty client started, {}, connected={}",addrstr,connected.get());
+        log.info("netty client started, {}, connected={}",addrsToString(),connected.get());
     }
 
     void close() {
@@ -292,16 +436,16 @@ public class NettyClient { // with Dumpable
 
         if (factory != null) {
 
-            log.info("stopping netty client {}",addrstr);
+            log.info("stopping netty client {}",addrsToString());
 
             if( useInternalTimer )
                 timer.stop();
             timer = null;
 
             DefaultChannelGroup allChannels = new DefaultChannelGroup("netty-client-java");
-            for(Channel ch : channels ) {
-            	if( ch != null && ch.isOpen() ) {
-            		allChannels.add(ch);	
+            for(ConnInfo connInfo : allConns ) {
+            	if( connInfo.ch != null && connInfo.ch.isOpen() ) {
+            		allChannels.add(connInfo.ch);	
             	}
             }
             ChannelGroupFuture future = allChannels.close();
@@ -315,7 +459,7 @@ public class NettyClient { // with Dumpable
         if( useInternalQte )
             qte.close();
 
-        log.info("netty client stopped {}",addrstr);
+        log.info("netty client stopped {}",addrsToString());
     }
 /*
     def selfcheck() : ArrayBuffer[SelfCheckResult] = {
@@ -341,13 +485,18 @@ public class NettyClient { // with Dumpable
         buff
     }
 */
-    void reconnect(final int hostidx,final int connidx) {
+    void reconnect(final ConnInfo connInfo) {
 
-        String[] ss = addrs[hostidx].split(":");
+        if( !connInfo.enabled.get() ) {
+            log.info("reconnect disabled, hostidx={},connidx={}",connInfo.hostidx,connInfo.connidx);
+            return;
+        }
+        
+        String[] ss = connInfo.addr.split(":");
         String host = ss[0];
         int port = Integer.parseInt(ss[1]);
 
-        log.info("reconnect called, hostidx={},connidx={}",hostidx,connidx);
+        log.info("reconnect called, hostidx={},connidx={}",connInfo.hostidx,connInfo.connidx);
 
         ChannelFuture future = null;
         if( startPort == -1 ) {
@@ -359,20 +508,19 @@ public class NettyClient { // with Dumpable
 
         future.addListener( new ChannelFutureListener() {
             public void operationComplete(ChannelFuture future) {
-                onConnectCompleted(future,hostidx,connidx);
+                onConnectCompleted(future,connInfo);
             }
         } );
 
         if( waitForAllConnected ) {
 
-            futureLock.lock();
+        	lock.lock();
             try {
-                int idx = hostidx + connidx * addrs.length;
-                futures[idx] = future;
-                futuresStartTime[idx] = System.currentTimeMillis();
-                }	finally {
-                    futureLock.unlock();
-                }
+                connInfo.future = future;
+                connInfo.futureStartTime = System.currentTimeMillis();
+            }	finally {
+            	lock.unlock();
+            }
 
         }
 
@@ -386,8 +534,8 @@ public class NettyClient { // with Dumpable
 
             int i = 0;
             int cnt = 0;
-            while(  i < channels.length ) {
-                Channel ch = channels[i];
+            while(  i < allConns.length ) {
+                Channel ch = allConns[i].ch;
                 if( ch != null ) {
                     cnt +=1;
                 }
@@ -402,17 +550,17 @@ public class NettyClient { // with Dumpable
 
     }
 
-    void onConnectCompleted(ChannelFuture f,final int hostidx,final int connidx) {
+    void onConnectCompleted(ChannelFuture f,final ConnInfo connInfo) {
 
         if (f.isCancelled()) {
 
-            log.error("connect cancelled, hostidx="+hostidx+",connidx="+connidx);
+            log.error("connect cancelled, hostidx="+connInfo.hostidx+",connidx="+connInfo.connidx);
 
             if( timer != null ) { // while shutdowning
                 timer.newTimeout( new TimerTask() {
 
                     public void run( Timeout timeout) {
-                        reconnect(hostidx,connidx);
+                        reconnect(connInfo);
                     }
 
                 }, reconnectInterval, TimeUnit.SECONDS);
@@ -420,13 +568,13 @@ public class NettyClient { // with Dumpable
 
         } else if (!f.isSuccess()) {
 
-            log.error("connect failed, hostidx="+hostidx+",connidx="+connidx+",e="+f.getCause().getMessage());
+            log.error("connect failed, hostidx="+connInfo.hostidx+",connidx="+connInfo.connidx+",e="+f.getCause().getMessage());
 
             if( timer != null ) { // while shutdowning
                 timer.newTimeout( new TimerTask() {
 
                     public void run(Timeout timeout) {
-                        reconnect(hostidx,connidx);
+                        reconnect(connInfo);
                     }
 
                 }, reconnectInterval, TimeUnit.SECONDS);
@@ -434,16 +582,20 @@ public class NettyClient { // with Dumpable
         } else {
 
             Channel ch = f.getChannel();
-            log.info("connect ok, hostidx="+hostidx+",connidx="+connidx+",channelId="+ch.getId()+",channelAddr="+addrs[hostidx]+",clientAddr="+ch.getLocalAddress().toString());
-            int idx = hostidx + connidx * addrs.length;
-
+            Channel ignore_ch = null;
+            
             lock.lock();
 
             try {
-                if( channels[idx] == null ) {
+                if( connInfo.ch == null ) {
                     String theConnId = parseIpPort(ch.getRemoteAddress().toString()) + ":" + ch.getId();
-                    channels[idx] = ch;
-                    channelIds[idx] = theConnId;
+                    connInfo.ch = ch;
+                    connInfo.connId = theConnId;
+                    log.info("connect ok, hostidx="+connInfo.hostidx+",connidx="+connInfo.connidx+",channelId="+ch.getId()+",channelAddr="+connInfo.addr+",clientAddr="+ch.getLocalAddress().toString());
+                } else {
+                    log.info("connect ignored, hostidx="+connInfo.hostidx+",connidx="+connInfo.connidx+",channelId="+ch.getId()+",channelAddr="+connInfo.addr+",clientAddr="+ch.getLocalAddress().toString());
+                    ignore_ch = ch;
+                    ch = null;
                 }
             } finally {
                 lock.unlock();
@@ -451,7 +603,7 @@ public class NettyClient { // with Dumpable
 
             if( waitForAllConnected ) {
 
-                if( connectedCount() == channels.length ) {
+                if( connectedCount() == allConns.length ) {
                     connected.set(true);
                 }
 
@@ -459,25 +611,73 @@ public class NettyClient { // with Dumpable
                 connected.set(true);
             }
 
-            String ladr = ch.getLocalAddress().toString();
-            if( NettyClient.localAddrsMap.contains(ladr) ) {
-                log.warn("client addr duplicated, " + ladr );
-            }	else {
-                NettyClient.localAddrsMap.put(ladr,"1");
-            }
-
-            if( isSps ) {
-                ByteBuffer buff = soc.generateReportSpsId();
-                if( buff != null ) {
-                    updateSpsId(buff,idx);
-                    ChannelBuffer reqBuf = ChannelBuffers.wrappedBuffer(buff);
-                    ch.write(reqBuf);
+            if( ch == null ) {
+                if( ignore_ch != null ) ignore_ch.close();
+            } else {
+            	soc.connected(connInfo.connId,connInfo.addr,connInfo.connidx);
+            	
+                String ladr = ch.getLocalAddress().toString();
+                if( NettyClient.localAddrsMap.contains(ladr) ) {
+                    log.warn("client addr duplicated, " + ladr );
+                }	else {
+                    NettyClient.localAddrsMap.put(ladr,"1");
                 }
+
+                if( isSps ) {
+                    ByteBuffer buff = soc.generateReportSpsId();
+                    if( buff != null ) {
+                        updateSpsId(buff,connInfo);
+                        ChannelBuffer reqBuf = ChannelBuffers.wrappedBuffer(buff);
+                        ch.write(reqBuf);
+                    }
+                }
+            	
             }
         }
 
     }
- 
+
+    void closeChannelFromOutside(String theConnId) {
+
+        lock.lock();
+
+        try {
+            Channel channel = channelsMap.get(theConnId);
+            if( channel != null && channel.isOpen() ) {
+                channel.close();
+                return ;
+            }
+
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    void addChannelToMap(String theConnId) {
+
+        lock.lock();
+
+        try {
+            int i = 0;
+
+            while( i < allConns.length ) {
+
+                Channel channel = allConns[i].ch;
+                String connId = allConns[i].connId;
+                if( channel != null && channel.isOpen() && connId.equals(theConnId) ) {
+                    channelsMap.put(connId,channel);
+                    return ;
+                }
+
+                i+=1;
+            }
+
+        } finally {
+            lock.unlock();
+        }
+
+    }
+    
     String selectChannel() {
 
         lock.lock();
@@ -485,10 +685,10 @@ public class NettyClient { // with Dumpable
         try {
             int i = 0;
 
-            while( i < channels.length ) {
+            while( i < allConns.length ) {
 
-                Channel channel = channels[i];
-                String connId = channelIds[i];
+                Channel channel = allConns[i].ch;
+                String connId = allConns[i].connId;
                 if( channel != null && channel.isOpen() && !channelsMap.containsKey(connId) ) {
                     channelsMap.put(connId,channel);
                     return connId;
@@ -531,9 +731,11 @@ public class NettyClient { // with Dumpable
     }
     
     class ChannelAndIdx {
+    	ConnInfo connInfo;
     	Channel ch;
     	int idx;
-    	ChannelAndIdx(Channel ch,int idx) {
+    	ChannelAndIdx(ConnInfo connInfo,Channel ch,int idx) {
+    		this.connInfo = connInfo;
     		this.ch = ch;
     		this.idx = idx;
     	}
@@ -549,10 +751,11 @@ public class NettyClient { // with Dumpable
         try {
 
             int i = 0;
-            while(  i < channels.length ) {
-                Channel ch = channels[nextIdx];
-                String connId = channelIds[nextIdx];
-                String chAddr = channelAddrs[nextIdx];
+            while(  i < allConns.length ) {
+            	ConnInfo connInfo = allConns[nextIdx];
+                Channel ch = connInfo.ch;
+                String connId = connInfo.connId;
+                String chAddr = connInfo.addr;
                 if( ch != null ) { // && ch.isWritable
 
                     if( ch.isOpen() ) {
@@ -567,9 +770,9 @@ public class NettyClient { // with Dumpable
                         	TimeoutInfo ti = new TimeoutInfo(sequence,connId,t);
                             dataMap.put(sequence,ti);
 
-                            ChannelAndIdx d = new ChannelAndIdx(ch,nextIdx);
+                            ChannelAndIdx d = new ChannelAndIdx(connInfo,ch,nextIdx);
                             nextIdx += 1;
-                            if( nextIdx >= channels.length ) nextIdx = 0;
+                            if( nextIdx >= allConns.length ) nextIdx = 0;
                             return d;
 
                         }
@@ -582,10 +785,10 @@ public class NettyClient { // with Dumpable
                 }
                 i+=1;
                 nextIdx += 1;
-                if( nextIdx >= channels.length ) nextIdx = 0;
+                if( nextIdx >= allConns.length ) nextIdx = 0;
             }
 
-            return new ChannelAndIdx(null,0);
+            return new ChannelAndIdx(null,null,0);
 
         } finally {
             lock.unlock();
@@ -600,17 +803,18 @@ public class NettyClient { // with Dumpable
 
         lock.lock();
 
-        int idx = -1;
+        ConnInfo connInfo = null;
         try {
         	int i = 0;
 
-            while( idx == -1 && i < channels.length ) {
-                Channel channel = channels[i];
-                String theConnId = channelIds[i];
+            while( connInfo == null && i < allConns.length ) {
+                Channel channel = allConns[i].ch;
+                String theConnId = allConns[i].connId;
                 if( channel != null && theConnId.equals(connId) ) {
-                    channels[i] = null;
-                    channelIds[i] = null;
-                    idx = i;
+                	connInfo = allConns[i];
+                	soc.disconnected(connInfo.connId,connInfo.addr,connInfo.connidx);
+                	connInfo.ch = null;
+                	connInfo.connId = null;
                 }
 
                 i+=1;
@@ -622,15 +826,13 @@ public class NettyClient { // with Dumpable
             lock.unlock();
         }
 
-        if( idx != -1 ) {
-
-            final int hostidx = idx % addrs.length;
-            final int connidx = idx / addrs.length;
-
+        if( connInfo != null ) {
+        	
+        	final ConnInfo t = connInfo;
             timer.newTimeout( new TimerTask() {
 
                 public void run( Timeout timeout) {
-                    reconnect(hostidx,connidx);
+                    reconnect(t);
                 }
 
             }, reconnectInterval, TimeUnit.SECONDS);
@@ -647,7 +849,7 @@ public class NettyClient { // with Dumpable
             return false;
         }
 
-        if( isSps ) updateSpsId(buff,ci.idx);
+        if( isSps ) updateSpsId(buff,ci.connInfo);
 
         ChannelBuffer reqBuf = ChannelBuffers.wrappedBuffer(buff);
         ci.ch.write(reqBuf);
@@ -664,18 +866,16 @@ public class NettyClient { // with Dumpable
             return false;
         }
 
-        if( isSps ) updateSpsId(buff,ci.idx);
+        if( isSps ) updateSpsId(buff,ci.connInfo);
         ChannelBuffer reqBuf = ChannelBuffers.wrappedBuffer(buff);
         ci.ch.write(reqBuf);
 
         return true;
     }
 
-    void updateSpsId(ByteBuffer buff,int idx) {
+    void updateSpsId(ByteBuffer buff,ConnInfo connInfo) {
         byte[] array = buff.array();
-        //int hostidx = idx % addrs.length;
-        int connidx = idx / addrs.length;
-        String spsId = guids[connidx];
+        String spsId = connInfo.guid;
         byte[] spsIdArray = spsId.getBytes(); // "ISO-8859-1"
         int i = 0;
         while( i < spsIdArray.length ) {
@@ -707,11 +907,11 @@ public class NettyClient { // with Dumpable
         try {
             int i = 0;
 
-            while( i < channels.length && ch == null ) {
-                Channel channel = channels[i];
-                String theConnId = channelIds[i];
+            while( i < allConns.length && ch == null ) {
+                Channel channel = allConns[i].ch;
+                String theConnId = allConns[i].connId;
                 if( channel != null && theConnId.equals(connId) ) {
-                    ch = channels[i];
+                    ch = allConns[i].ch;
                 }
 
                 i+=1;
@@ -887,5 +1087,41 @@ public class NettyClient { // with Dumpable
     	
     }
 
+    class AddrInfo {
+    	String addr;
+    	boolean enabled = true; 
+    		
+    	AddrInfo(String addr) {
+    		this.addr = addr;
+    	}
+    	
+    	AddrInfo(String addr,boolean enabled) {
+    		this.addr = addr;
+    		this.enabled = enabled;
+    	}
+    
+}
+
+    class ConnInfo {
+    	
+    	String addr;
+    	int hostidx;
+    	int connidx;
+    	String guid;
+    	
+    	AtomicBoolean enabled = new AtomicBoolean(true);
+        Channel ch = null;
+        String connId = null;
+        ChannelFuture future = null;
+        long futureStartTime = 0L;
+        
+        ConnInfo(String addr, int hostidx, int connidx, String guid) {
+        	this.addr = addr;
+        	this.hostidx = hostidx;
+        	this.connidx = connidx;
+        	this.guid = guid;
+        }
+    }
+    
 }
 

@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 import java.nio.ByteBuffer;
 
 import org.dom4j.Element;
@@ -33,6 +34,7 @@ class SocActor implements Actor {
 
 	AvenueStackImpl router;
 	Element cfgNode;	
+	
     int timeout = 30000;
     		
     String serviceIds;
@@ -64,6 +66,10 @@ class SocActor implements Actor {
         socWrapper.dump();
     }
 
+    boolean isTrue(String s) {
+    	return s != null && s.equals("1") || s.equals("y") || s.equals("t") || s.equals("yes") || s.equals("true");
+    }
+    
     void init() {
 
     	serviceIds = ((Element)cfgNode.selectSingleNode("ServiceId")).getText();
@@ -109,12 +115,25 @@ class SocActor implements Actor {
         s = cfgNode.attributeValue("reconnectInterval","");
         if( !s.equals("") ) reconnectInterval = Integer.parseInt(s);
 
+        boolean needShakeHands = false;
+        s = cfgNode.attributeValue("needShakeHands","");
+        if( !s.equals("") ) needShakeHands = isTrue(s);
+
+        String shakeHandsTo = "";
+        s = cfgNode.attributeValue("shakeHandsTo",""); 
+        if( !s.equals("") ) shakeHandsTo = s;
+
+        String shakeHandsPubKey = "";
+        s = cfgNode.attributeValue("shakeHandsPubKey",""); 
+        if( !s.equals("") ) shakeHandsPubKey = s;
+
+        
         String firstServiceId = serviceIds.split(",")[0];
         threadFactory = new NamedThreadFactory("soc"+firstServiceId);
         pool = new ThreadPoolExecutor(maxThreadNum, maxThreadNum, 0, TimeUnit.SECONDS, new ArrayBlockingQueue<Runnable>(queueSize),threadFactory);
         pool.prestartAllCoreThreads();
 
-        //boolean isSps = router.getConfig("isSps","0").equals("1");
+        boolean isSps = router.getConfig("isSps","0").equals("1");
         String reportSpsTo = router.getConfig("spsReportTo","55605:1");
         String reportSpsServiceId = reportSpsTo.split(":")[0];
         String[] ss = serviceIds.split(",");
@@ -136,8 +155,13 @@ class SocActor implements Actor {
         socWrapper.connSizePerAddr = connSizePerAddr;
         socWrapper.timerInterval = timerInterval;
         socWrapper.reconnectInterval = reconnectInterval;
+        socWrapper.isSps = isSps;
         socWrapper.reportSpsTo = reportSpsTo;
+        socWrapper.needShakeHands = needShakeHands;
+        socWrapper.shakeHandsTo = shakeHandsTo;
+        socWrapper.shakeHandsPubKey = shakeHandsPubKey;
         socWrapper.actor = this;
+        
         socWrapper.init();
 
         log.info("SocActor started {}",serviceIds);
@@ -255,13 +279,6 @@ class SocActor implements Actor {
 class SocImpl implements Soc4Netty { // with Logging with Dumpable 
 
 	static Logger log = LoggerFactory.getLogger(SocImpl.class);
-	
-	ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
-	NettyClient nettyClient;
-	AtomicInteger generator = new AtomicInteger(1);
-	//AvenueCodec converter = new AvenueCodec();
-	ConcurrentHashMap<String,String> keyMap = new ConcurrentHashMap<String,String>();
-	ConcurrentHashMap<Integer,CacheData> dataMap = new ConcurrentHashMap<Integer,CacheData>();
 
 	String addrs;
 	TlvCodecs codecs;
@@ -275,6 +292,10 @@ class SocImpl implements Soc4Netty { // with Logging with Dumpable
     int reconnectInterval = 1;
     boolean isSps= false;
     String reportSpsTo = "0:0";
+    boolean needShakeHands = false;
+    String shakeHandsTo = null;
+    String shakeHandsPubKey = null;
+    
     ThreadPoolExecutor bossExecutor = null;
     ThreadPoolExecutor workerExecutor = null;
     HashedWheelTimer timer  = null;
@@ -285,13 +306,33 @@ class SocImpl implements Soc4Netty { // with Logging with Dumpable
     boolean reuseAddress = false;
     int startPort = -1;
     Actor actor = null;
+	
+	ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
+	NettyClient nettyClient;
+	AtomicInteger generator = new AtomicInteger(1);
+	//AvenueCodec converter = new AvenueCodec();
+	ConcurrentHashMap<String,String> keyMap = new ConcurrentHashMap<String,String>();
+	ConcurrentHashMap<Integer,CacheData> dataMap = new ConcurrentHashMap<Integer,CacheData>();
 
+	ConcurrentHashMap<String,String> shakeHandsKeyMap = new ConcurrentHashMap<String,String>();
+    int shakeHandsServiceId = 1;
+    int shakeHandsMsgId = 5;
 
+    ConcurrentHashMap<String,String> addrMap = new ConcurrentHashMap<String,String>(); // addr:connidx->connId
+    ReentrantLock lock = new ReentrantLock(false);
+    HashMap<String,Integer> addrIdxMap = new HashMap<String,Integer>(); // addr->idx
+    
+    public static ShakeHandsCrypt shakeHandsCrypt;
+    
     void dump() {
 
     	StringBuilder buff = new StringBuilder();
 
         buff.append("dataMap.size=").append(dataMap.size()).append(",");
+        buff.append("keyMap.size=").append(keyMap.size()).append(",");
+        buff.append("shakeHandsKeyMap.size=").append(shakeHandsKeyMap.size()).append(",");
+        buff.append("addrMap.size=").append(addrMap.size()).append(",");
+        buff.append("addrIdxMap.size=").append(addrIdxMap.size()).append(",");
 
         log.info(buff.toString());
 
@@ -300,9 +341,13 @@ class SocImpl implements Soc4Netty { // with Logging with Dumpable
 
     void init() {
 
-        nettyClient = new NettyClient();
-        nettyClient.soc = this;
-        nettyClient.addrstr = addrs;
+        if( shakeHandsTo != null && !shakeHandsTo.equals("")) {
+            String[] ss = shakeHandsTo.split(":");
+            shakeHandsServiceId = Integer.parseInt( ss[0] );
+            shakeHandsMsgId = Integer.parseInt( ss[1] );
+        }
+        
+        nettyClient = new NettyClient(this,addrs);
         nettyClient.connectTimeout = connectTimeout;
         nettyClient.pingInterval = pingInterval;
         nettyClient.maxPackageSize = maxPackageSize;
@@ -321,6 +366,8 @@ class SocImpl implements Soc4Netty { // with Logging with Dumpable
         nettyClient.isSps = isSps;
         		
         nettyClient.init();
+        
+        nettyClient.start();
 
         log.info("soc {} started",addrs);
     }
@@ -351,7 +398,62 @@ class SocImpl implements Soc4Netty { // with Logging with Dumpable
         }
     }
 
+    boolean isConnId(String addr) {
+        int p1 = addr.indexOf(":");
+        if( p1 < 0 ) return false;
+        int p2 = addr.indexOf(":",p1+1);
+        if( p2 < 0 ) return false;
+        return true;
+    }
+    
+    String findConnId(String addr) {
+        if( connSizePerAddr == 1 ) {
+        	String connId = addrMap.get(addr+"-0");
+            if( connId != null ) return connId;
+            return null;
+        }
+
+        lock.lock();
+        try {
+            Integer idx = addrIdxMap.get(addr);
+            if( idx == null ) return null;
+
+            int i = 0 ;
+            while( i < connSizePerAddr ) {
+                String key = addr+"-"+idx;
+                String connId = addrMap.get(key);
+                if( connId != null ) {
+                    idx += 1;
+                    if( idx >= connSizePerAddr ) idx = 0;
+                    addrIdxMap.put(addr,idx);
+                    return connId;
+                }
+                idx += 1;
+                if( idx >= connSizePerAddr ) idx = 0;
+                i += 1;
+            }
+            addrIdxMap.put(addr,idx);
+        } finally {
+            lock.unlock();
+        }
+
+        return null;
+    }
+    
     int sendByAddr(AvenueData data,int timeout,String addr) {
+
+    	if( isConnId(addr) ) { // 目前只有shakehands才会这样调用
+            return sendByConnId(data,timeout,addr);
+        }
+
+        if( needShakeHands ) {
+            String connId = findConnId(addr);
+            if( connId == null ) return ErrorCodes.NETWORK_ERROR;
+            String key = keyMap.get(connId);
+            if( key == null ) return ErrorCodes.NETWORK_ERROR;
+            return sendByConnId(data,timeout,connId);
+        }
+    	
         try {
 
         	ByteBuffer buff = AvenueCodec.encode(data);
@@ -430,6 +532,75 @@ class SocImpl implements Soc4Netty { // with Logging with Dumpable
         }
     }
 
+
+    public void connected(String connId,String addr,int connidx) {
+        if( !needShakeHands ) return;
+        nettyClient.addChannelToMap(connId);
+        addrMap.put(addr+"-"+connidx,connId);
+        lock.lock();
+        try {
+            if( addrIdxMap.get(addr) == null ) {
+               addrIdxMap.put(addr,0) ;
+            }
+        } finally {
+            lock.unlock();
+        }
+        shakeHands(connId);
+    }
+    public  void disconnected(String connId,String addr,int connidx) {
+        if( !needShakeHands ) return;
+        addrMap.remove(addr+"-"+connidx);
+    }
+
+    void shakeHands(String connId) {
+    
+        if( shakeHandsCrypt == null ) return ;
+
+        String requestId = "SOC"+RequestIdGenerator.nextId(); // SOC is a special prefix
+        String aesKey = java.util.UUID.randomUUID().toString().replaceAll("-", "").substring(0, 16);
+        shakeHandsKeyMap.put(requestId,aesKey);
+        HashMap<String,Object> body = new HashMap<String,Object>();
+        String aesKeyPack = shakeHandsCrypt.shakehands_enc_f(shakeHandsPubKey,aesKey);
+        body.put("clientKey",aesKeyPack);
+
+        Request req = new Request(
+            requestId,
+            "0:0",
+            0,
+            1,
+            shakeHandsServiceId,
+            shakeHandsMsgId,
+            new HashMap<String,Object>(),
+            body,
+            actor
+        );
+        req.setToAddr( connId );
+        send(req,30000);
+    }
+
+    void afterShakeHands(Request req,Response res) {
+        String connId = req.getToAddr();
+        boolean ok = false;
+        String aesKey = shakeHandsKeyMap.remove(req.getRequestId());
+        if( res.getCode() == 0 ) {
+        	byte[] serverKeyBytes = (byte[])res.getBody().get("serverKey");
+            String serverKey = shakeHandsCrypt.shakehands_dec_f(aesKey,serverKeyBytes);
+            if( serverKey != null ) {
+                keyMap.put( connId, serverKey );
+                ok = true;
+                log.info("shakehands ok, soc.key="+serverKey+",connId="+connId);
+                return;
+            }
+            log.error("shakehands error, decrypt buff is null, connId="+connId);
+
+      } else {
+          log.error("shakehands error, res="+res.toString());
+      }
+      if(!ok) {
+         nettyClient.closeChannelFromOutside(connId);
+      }
+    }
+    
     public Soc4NettySequenceInfo receive(ByteBuffer res, String connId) {
 
     	AvenueData data;
@@ -703,6 +874,10 @@ class SocImpl implements Soc4Netty { // with Logging with Dumpable
 	
 	                    Response res = new Response (errorCode,d.body,req);
 	                    res.setRemoteAddr( parseRemoteAddr(vv.connId) );
+                        if( needShakeHands && req.getServiceId() == shakeHandsServiceId && req.getMsgId() == shakeHandsMsgId ) {
+                            afterShakeHands(req,res);
+                            return;
+                        }	                    
 	                    actor.receive(new RequestResponseInfo(req,res));
 	                }
                 }
@@ -745,6 +920,10 @@ class SocImpl implements Soc4Netty { // with Logging with Dumpable
             		Request req = (Request)saved.data;    
             		Response res = createErrorResponse(ErrorCodes.SERVICE_TIMEOUT,req);
                     res.setRemoteAddr( parseRemoteAddr(vv.connId) );
+                    if( needShakeHands && req.getServiceId() == shakeHandsServiceId && req.getMsgId() == shakeHandsMsgId ) {
+                        afterShakeHands(req,res);
+                        return;
+                    }	                    
                     actor.receive(new RequestResponseInfo(req,res));
                 }
             } else {
@@ -773,6 +952,10 @@ class SocImpl implements Soc4Netty { // with Logging with Dumpable
                 		Request req = (Request)saved.data;    
                 		Response res = createErrorResponse(ErrorCodes.NETWORK_ERROR,req);
                         res.setRemoteAddr( parseRemoteAddr(vv.connId) );
+                        if( needShakeHands && req.getServiceId() == shakeHandsServiceId && req.getMsgId() == shakeHandsMsgId ) {
+                            afterShakeHands(req,res);
+                            return;
+                        }	                    
                         actor.receive(new RequestResponseInfo(req,res));
                     }
                 } else {
