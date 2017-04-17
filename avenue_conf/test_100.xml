@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service name="test" id="100" IsTreeStruct ="false">
+	
+	<type name="message_type" class="string" code="1"/>
+	
+	<message name="hello" id="1">
+		<requestParameter>
+			<field name="message" type="message_type" />
+		</requestParameter>
+		<responseParameter>
+			<field name="message" type="message_type" />
+		</responseParameter>
+	</message>
+	
+</service>

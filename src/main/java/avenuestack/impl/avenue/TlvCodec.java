@@ -134,7 +134,7 @@ public class TlvCodec {
     public int serviceId;
     public String serviceName;
     public String serviceOrigName;
-    public boolean enableExtendTlv = false;
+    public boolean enableExtendTlv = true;
 
     TlvCodec(String configFile) {
     	this.configFile = configFile;
@@ -401,7 +401,8 @@ public class TlvCodec {
         serviceOrigName = cfgXml.attributeValue("name");
         serviceName = cfgXml.attributeValue("name").toLowerCase();
         String enableExtendTlvStr = cfgXml.attributeValue("enableExtendTlv","").toLowerCase();
-        enableExtendTlv = isTrue(enableExtendTlvStr);
+        if( enableExtendTlvStr != null && enableExtendTlvStr.length() > 0 )
+        	enableExtendTlv = isTrue(enableExtendTlvStr);
         //val metadatas = cfgXml.attributes.filter(  _.key != "id").filter( _.key != "name").filter( _.key != "IsTreeStruct").filter( _.key != "enableExtendTlv")
         //for( m <- metadatas ) {
           //  codecAttributes.put(m.key,m.value.text)

@@ -173,7 +173,31 @@ class AsyncLogActor implements Actor {
         log.info("AsyncLogActor started");
     }
 
-    int timeToReqIdx(int ts) {
+    void close() {
+	
+	    shutdown.set(true);
+	    timer.cancel();
+	
+	    long t1 = System.currentTimeMillis();
+	
+	    pool.shutdown();
+	    
+	    try {
+	    	pool.awaitTermination(5,TimeUnit.SECONDS);
+	    } catch(InterruptedException e) {
+	    }
+	
+	    writeStats(statf_tl.get().format(new Date(System.currentTimeMillis() - 60000)));
+	    writeStats(statf_tl.get().format(new Date(System.currentTimeMillis())));
+	
+	    long t2 = System.currentTimeMillis();
+	    if( t2 - t1 > 100 )
+	        log.warn("AsyncLogActor long time to shutdown pool, ts={}",t2-t1);
+	
+	    log.info("AsyncLogActor stopped");
+	}
+
+	int timeToReqIdx(int ts) {
         int i = 0;
         while(i<reqdts.length) {
             if( ts <= reqdts[i] ) return i;
@@ -320,30 +344,6 @@ class AsyncLogActor implements Actor {
 
     }
   
-    void close() {
-
-        shutdown.set(true);
-        timer.cancel();
-
-        long t1 = System.currentTimeMillis();
-
-        pool.shutdown();
-        
-        try {
-        	pool.awaitTermination(5,TimeUnit.SECONDS);
-        } catch(InterruptedException e) {
-        }
-
-        writeStats(statf_tl.get().format(new Date(System.currentTimeMillis() - 60000)));
-        writeStats(statf_tl.get().format(new Date(System.currentTimeMillis())));
-
-        long t2 = System.currentTimeMillis();
-        if( t2 - t1 > 100 )
-            log.warn("AsyncLogActor long time to shutdown pool, ts={}",t2-t1);
-
-        log.info("AsyncLogActor stopped");
-    }
-
     ArrayList<String> findReqLogCfg(int serviceId,int msgId) {
     	ArrayList<String> s = requestLogCfgReq.get(serviceId+":"+msgId);
         if( s != null ) return s;

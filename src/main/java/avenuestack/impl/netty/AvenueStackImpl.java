@@ -6,6 +6,10 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
@@ -30,6 +34,7 @@ import avenuestack.impl.avenue.MapWithReturnCode;
 import avenuestack.impl.avenue.TlvCodec;
 import avenuestack.impl.avenue.TlvCodec4Xhead;
 import avenuestack.impl.avenue.TlvCodecs;
+import avenuestack.impl.util.NamedThreadFactory;
 import avenuestack.impl.util.RequestIdGenerator;
 
 public class AvenueStackImpl implements AvenueStack {
@@ -54,6 +59,11 @@ public class AvenueStackImpl implements AvenueStack {
 	HashMap<String,Actor> actorMap = new HashMap<String,Actor>();
 	AsyncLogActor asyncLogActor;
 	
+    int queueSize = 10000;
+    int maxThreadNum = 1;
+    ThreadFactory threadFactory;
+    ThreadPoolExecutor pool;
+	
 	public void init() throws Exception {
 		
 		configXml = confDir + File.separatorChar + "avenue_"+profile+".xml";
@@ -68,6 +78,18 @@ public class AvenueStackImpl implements AvenueStack {
 		SAXReader saxReader = new SAXReader();
 		saxReader.setEncoding("UTF-8");
 		cfgXml = saxReader.read(new FileInputStream(configXml)).getRootElement(); 
+		
+        Element cfgNode = (Element)cfgXml.selectSingleNode("/parameters/AvenueStack");
+        if( cfgNode != null ) {
+            String s = cfgNode.attributeValue("threadNum","");
+            if( !s.equals("") ) maxThreadNum = Integer.parseInt(s);
+            s = cfgNode.attributeValue("queueSize","");
+            if( !s.equals("") ) queueSize = Integer.parseInt(s);
+        }
+        
+        threadFactory = new NamedThreadFactory("sosworker");
+        pool = new ThreadPoolExecutor(maxThreadNum, maxThreadNum, 0, TimeUnit.SECONDS, new ArrayBlockingQueue<Runnable>(queueSize),threadFactory);
+        pool.prestartAllCoreThreads();
 		
 		asyncLogActor = new AsyncLogActor(this);
 		
@@ -132,6 +154,18 @@ public class AvenueStackImpl implements AvenueStack {
 		}
 		sos.close();
 		
+        if( pool != null ) {
+            long t1 = System.currentTimeMillis();
+            pool.shutdown();
+            try {
+            	pool.awaitTermination(5,TimeUnit.SECONDS);
+            } catch(InterruptedException e) {
+            }
+            long t2 = System.currentTimeMillis();
+            if( t2 - t1 > 100 )
+                log.warn("long time to close aveenuestack threadpool, ts={}",t2-t1);
+        }
+		
 		asyncLogActor.close();
 		
 		log.info("avenuestack closed");
@@ -193,7 +227,7 @@ public class AvenueStackImpl implements AvenueStack {
                 return;
             }
 
-            Request req = new Request (
+            final Request req = new Request (
                 rawReq.requestId,
                 connId,
                 data.sequence,
@@ -216,7 +250,21 @@ public class AvenueStackImpl implements AvenueStack {
               //  rawReq.sender.receive( new RawRequestAckInfo(rawReq) );
             //}
             
-            reqrcv.receiveRequest(req);
+            try {
+                pool.execute( new Runnable() {
+                    public void run() {
+                        try {
+                        	reqrcv.receiveRequest(req);
+                        } catch(Exception e) {
+                            log.error("avenuestatck exception ,req="+req.toString() +", e="+e.getMessage(),e);
+                        }
+                    }
+                });
+            } catch(RejectedExecutionException e) {
+                // ignore the message
+                log.error("avenuestatck queue is full,req="+req.toString());
+            }
+            
 
         } catch(Exception e) {
                 log.error("process raw request error",e);
@@ -284,12 +332,27 @@ public class AvenueStackImpl implements AvenueStack {
 		log.error("RequestAckInfo message received ignored in avenuestack");
 	}
 
-	public void receiveResponse(RequestResponseInfo reqres) {
+	public void receiveResponse(final RequestResponseInfo reqres) {
 		asyncLogActor.receive(reqres);
-		Request req = reqres.req;
-		Response res = reqres.res;
-		ResponseReceiver rcv = (ResponseReceiver)req.getSender(); // 消息一定来源于某个rcv
-		rcv.receiveResponse(req, res);
+
+        try {
+            pool.execute( new Runnable() {
+                public void run() {
+                    try {
+                		Request req = reqres.req;
+                		Response res = reqres.res;
+                		ResponseReceiver rcv = (ResponseReceiver)req.getSender(); // 消息一定来源于某个rcv
+                		rcv.receiveResponse(req, res);
+                    } catch(Exception e) {
+                        log.error("avenuestatck exception, req="+reqres.req.toString()+", res="+reqres.res.toString()+", e="+e.getMessage(),e);
+                    }
+                }
+            });
+        } catch(RejectedExecutionException e) {
+            // ignore the message
+            log.error("avenuestatck queue is full,req="+reqres.req.toString()+",res="+reqres.res.toString());
+        }
+        
 	}
 	
 	public Response sendRequestWithReturn(Request req,int timeout) {

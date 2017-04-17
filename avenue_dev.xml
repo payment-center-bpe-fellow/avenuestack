@@ -1,23 +1,15 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <parameters>
 
-	<SapPort>6453</SapPort>
+	<SapPort>6666</SapPort>
 
 	<AsyncLogWithFieldName>true</AsyncLogWithFieldName>
     <AsyncLogArray>2</AsyncLogArray>
     
-
-
     <SosList>
         <ServiceId>451</ServiceId>
         <ServerAddr>127.0.0.1:6451</ServerAddr>
     </SosList>
-<!-- 
-    <SosList>
-        <ServiceId>452</ServiceId>
-        <ServerAddr>127.0.0.1:6452</ServerAddr>
-    </SosList>
- -->
  
 </parameters>
 
