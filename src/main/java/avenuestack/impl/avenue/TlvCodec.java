@@ -1,19 +1,19 @@
 package avenuestack.impl.avenue;
 
-import static avenuestack.impl.util.ArrayHelper.*;
+import static avenuestack.impl.util.ArrayHelper.mkString;
 
 import java.io.FileInputStream;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import avenuestack.ErrorCodes;
 import avenuestack.impl.util.ArrayHelper;
@@ -22,6 +22,8 @@ import avenuestack.impl.util.TypeSafe;
 public class TlvCodec {
 
 	static Logger log = LoggerFactory.getLogger(TlvCodec.class);
+
+	static String CLASSPATH_PREFIX = "classpath:";
 	
 	static final int CLS_ARRAY = -2;
 	static final int CLS_UNKNOWN = -1;
@@ -393,7 +395,11 @@ public class TlvCodec {
 
 		SAXReader saxReader = new SAXReader();
 		saxReader.setEncoding("UTF-8");
-		FileInputStream in = new FileInputStream(configFile);
+		InputStream in;
+		if( configFile.startsWith(CLASSPATH_PREFIX))
+			in = TlvCodec.class.getResourceAsStream(configFile.substring(CLASSPATH_PREFIX.length()));
+		else
+			in = new FileInputStream(configFile);
 		Element cfgXml = saxReader.read(in).getRootElement();
 		in.close();
 		

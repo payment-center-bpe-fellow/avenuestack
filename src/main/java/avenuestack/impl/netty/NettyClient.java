@@ -1,24 +1,43 @@
 package avenuestack.impl.netty;
 
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
-import java.nio.ByteBuffer;
-import java.net.InetSocketAddress;
 
-import org.jboss.netty.buffer.*;
-import org.jboss.netty.channel.*;
-import org.jboss.netty.handler.timeout.*;
-import org.jboss.netty.bootstrap.*;
-import org.jboss.netty.channel.group.*;
-import org.jboss.netty.channel.socket.nio.*;
+import org.jboss.netty.bootstrap.ClientBootstrap;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
+import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.ChannelPipeline;
+import org.jboss.netty.channel.ChannelPipelineFactory;
+import org.jboss.netty.channel.ChannelStateEvent;
+import org.jboss.netty.channel.Channels;
+import org.jboss.netty.channel.ExceptionEvent;
+import org.jboss.netty.channel.MessageEvent;
+import org.jboss.netty.channel.group.ChannelGroupFuture;
+import org.jboss.netty.channel.group.DefaultChannelGroup;
+import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.codec.frame.LengthFieldBasedFrameDecoder;
+import org.jboss.netty.handler.timeout.IdleStateAwareChannelHandler;
+import org.jboss.netty.handler.timeout.IdleStateEvent;
 import org.jboss.netty.handler.timeout.IdleStateHandler;
-import org.jboss.netty.util.*;
+import org.jboss.netty.util.HashedWheelTimer;
+import org.jboss.netty.util.ThreadNameDeterminer;
+import org.jboss.netty.util.ThreadRenamingRunnable;
+import org.jboss.netty.util.Timeout;
+import org.jboss.netty.util.TimerTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -414,16 +433,18 @@ public class NettyClient { // with Dumpable
 
         } else {
 
-            int maxWait = connectTimeout > 2000 ? 2000 : connectTimeout;
-            long now = System.currentTimeMillis();
-            long t = 0L;
-            while(!connected.get() && (t - now ) < maxWait){
-            	try {
-            		Thread.sleep(50);
-            	} catch(Exception e) {
-            	}
-                t = System.currentTimeMillis();
-            }
+        	if( addrs.length > 0 ) {
+                int maxWait = connectTimeout > 2000 ? 2000 : connectTimeout;
+                long now = System.currentTimeMillis();
+                long t = 0L;
+                while(!connected.get() && (t - now ) < maxWait){
+                	try {
+                		Thread.sleep(50);
+                	} catch(Exception e) {
+                	}
+                    t = System.currentTimeMillis();
+                }
+        	}
 
         }
 
