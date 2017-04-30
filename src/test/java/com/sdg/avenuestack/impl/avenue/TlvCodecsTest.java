@@ -17,7 +17,7 @@ public class TlvCodecsTest {
 
 	@Test
 	public void testA() throws Exception {
-		TlvCodecs codecs = new TlvCodecs("./avenue_conf");
+		TlvCodecs codecs = new TlvCodecs("src/test/resources/avenue_conf");
 		TlvCodec c = codecs.findTlvCodec(451);
 		assertNotNull(c);
 		String id = codecs.serviceNameToId("a.b");
@@ -43,7 +43,7 @@ public class TlvCodecsTest {
 
 	@Test
 	public void testB() throws Exception {
-		TlvCodecs codecs = new TlvCodecs("./avenue_conf");
+		TlvCodecs codecs = new TlvCodecs("src/test/resources/avenue_conf");
 		TlvCodec c = codecs.findTlvCodec(451);
 		
 		HashMap<String,Object> map = new HashMap<String,Object>();
@@ -97,7 +97,7 @@ public class TlvCodecsTest {
 	
 	@Test
 	public void testC() throws Exception {
-		TlvCodecs codecs = new TlvCodecs("./avenue_conf");
+		TlvCodecs codecs = new TlvCodecs("src/test/resources/avenue_conf");
 		TlvCodec c = codecs.findTlvCodec(451);
 		
 		HashMap<String,Object> map = new HashMap<String,Object>();

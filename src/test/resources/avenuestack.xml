@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<parameters>
+
+	<ThreadNum>8</ThreadNum>
+	<QueueSize>10000</QueueSize>
+
+	<SapPort>6461</SapPort>
+
+	<Server registerAs="cdnservice"/>
+
+    <SosList discoverFor="routeservice">
+        <ServiceId>459</ServiceId>
+        <!-- <ServerAddr>127.0.0.1:6459</ServerAddr>-->
+    </SosList>
+  	
+ 	<c a="@a" b="@b">serivce=@c user=@d</c>
+
+ 	@registry
+ 	<m>@addr</m>
+ 	
+</parameters>
+

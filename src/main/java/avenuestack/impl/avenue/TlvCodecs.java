@@ -2,6 +2,7 @@ package avenuestack.impl.avenue;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -16,19 +17,20 @@ public class TlvCodecs {
 
 	static Logger log = LoggerFactory.getLogger(TlvCodecs.class);
 	
+	static String CLASSPATH_PREFIX = "classpath:";
+	
 	HashMap<Integer,TlvCodec> codecs_id = new HashMap<Integer,TlvCodec>();
 	HashMap<String,TlvCodec> codecs_names = new HashMap<String,TlvCodec>();
 	
-	private String dir;
-	
 	public TlvCodecs(String dir) throws Exception {
-		this.dir = dir;
-		init();
+		init(getAllXmlFiles(dir));
 	}
 
-	// todo load file from classpath
+	public TlvCodecs(ArrayList<String> xmlfiles) throws Exception {
+		init(xmlfiles);
+	}
 	
-    public void init() throws Exception {
+    public ArrayList<String> getAllXmlFiles(String dir) throws Exception {
 
         ArrayList<String> xmls = new ArrayList<String>();
         ArrayList<String> xmls_sub = new ArrayList<String>();
@@ -59,8 +61,11 @@ public class TlvCodecs {
 
         ArrayList<String> allxmls = new ArrayList<String>();
         for(String s:xmls) allxmls.add(s);
-
         for(String s:xmls_sub) allxmls.add(s);
+        return allxmls;
+    }
+    
+    public void init(ArrayList<String> allxmls) throws Exception {
 
         for(String f : allxmls ) {
 
@@ -68,7 +73,13 @@ public class TlvCodecs {
             	
         		SAXReader saxReader = new SAXReader();
         		saxReader.setEncoding("UTF-8");
-        		FileInputStream in = new FileInputStream(f);
+        		
+        		InputStream in;
+        		if( f.startsWith(CLASSPATH_PREFIX))
+        			in = TlvCodecs.class.getResourceAsStream(f.substring(CLASSPATH_PREFIX.length()));
+        		else
+        			in = new FileInputStream(f);
+        		
         		Element cfgXml = saxReader.read(in).getRootElement();
         		in.close();
 
@@ -92,9 +103,11 @@ public class TlvCodecs {
             }
         }
 
-        log.info("validator size="+Validator.cache.size());
-        log.info("encoder size="+Encoder.cache.size());
-        log.info("tlvfieldinfo size="+TlvFieldInfo.cache.size());
+        if( log.isDebugEnabled()) {
+            log.debug("validator size="+Validator.cache.size());
+            log.debug("encoder size="+Encoder.cache.size());
+            log.debug("tlvfieldinfo size="+TlvFieldInfo.cache.size());
+        }
     }
     
 	public TlvCodec findTlvCodec(int serviceId) {

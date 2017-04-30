@@ -2,31 +2,39 @@ package avenuestack.impl.netty;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.StringReader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.regex.MatchResult;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import org.apache.commons.io.IOUtils;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import avenuestack.AvenueStack;
+import avenuestack.ErrorCodes;
 import avenuestack.Request;
 import avenuestack.RequestHelper;
 import avenuestack.RequestReceiver;
 import avenuestack.Response;
 import avenuestack.ResponseReceiver;
-import avenuestack.AvenueStack;
-import avenuestack.ErrorCodes;
 import avenuestack.impl.avenue.AvenueCodec;
 import avenuestack.impl.avenue.AvenueData;
 import avenuestack.impl.avenue.ByteBufferWithReturnCode;
@@ -40,55 +48,113 @@ import avenuestack.impl.util.RequestIdGenerator;
 public class AvenueStackImpl implements AvenueStack {
 
 	static Logger log = LoggerFactory.getLogger(AvenueStackImpl.class);
-	HashMap<String,Object> EMPTY_MAP = new HashMap<String,Object>();
-	ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
-    		
-	String confDir = ".";
-	String profile = "prd";
-
-	String configXml = "avenue.xml";
-	String avenueConfDir = "avenue_conf";
-
-	HashMap<String,String> parameters = new HashMap<String,String>();
 	
+	static String CLASSPATH_PREFIX = "classpath:";
+	static HashMap<String,Object> EMPTY_MAP = new HashMap<String,Object>();
+	static ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
+
+    int threadNum = 1;
+    int queueSize = 10000;
+	String profile = "default";
+	String dataDir = "./data";
+	String confDir = "./conf";
+	Properties parameters = new Properties();
+
+	String avenueConfDir = "./avenue_conf";
+	ArrayList<String> avenueXmlFiles;
+
 	TlvCodecs tlvCodecs;
 	Element cfgXml;
-	
+
 	RequestReceiver reqrcv;
 	Sos sos;
 	HashMap<String,Actor> actorMap = new HashMap<String,Actor>();
 	AsyncLogActor asyncLogActor;
 	
-    int queueSize = 10000;
-    int maxThreadNum = 1;
     ThreadFactory threadFactory;
     ThreadPoolExecutor pool;
+    EtcdPlugin etcdPlugin;
+	
+    AtomicBoolean started = new AtomicBoolean();
+    
+    public AvenueStackImpl() {
+    }
+    
+    String getParameter(String key) {
+    	return parameters.getProperty(key);
+    }
+	
+	public String getParameter(String key,String defaultValue) {
+		String s = getParameter(key);
+		if( s == null ) return defaultValue;
+		return s;
+	}
+	
+	public void addAvenueXml(String file) {
+		avenueConfDir = null;
+		if(avenueXmlFiles == null ) 
+			avenueXmlFiles = new ArrayList<String>();
+		avenueXmlFiles.add(file);
+	}
 	
 	public void init() throws Exception {
-		
-		configXml = confDir + File.separatorChar + "avenue_"+profile+".xml";
-		if( !new File(configXml).exists() ) 
-			configXml = confDir + File.separatorChar + "avenue.xml";
-		
-		avenueConfDir = confDir + File.separatorChar + avenueConfDir;
+//long t1 = System.currentTimeMillis();
+//log.info("avenuestack initing");
 
-		tlvCodecs = new TlvCodecs(avenueConfDir);
+    	String configXml = null;
+    	String parameterFile = null;
+    	
+		if( profile != null && !profile.equals("default") ) {
+			String t = confDir + "/" + "avenuestack_"+profile+".xml";
+			if( checkExist(t) )  {
+				configXml = t;
+			}
+		}
+		if(configXml == null) {
+			configXml = confDir + "/" + "avenuestack.xml";
+		}
+		
+		if( profile != null && !profile.equals("default") )
+			parameterFile = confDir + "/" + "avenuestack_"+profile+".properties";
+		else
+			parameterFile = confDir + "/" + "avenuestack.properties";
+		
+		loadParameters(parameterFile);
+		
+		String configXmlContent = prepareConfigFile(configXml);
+//long t2 = System.currentTimeMillis();
+//log.info("avenuestack ts1="+(t2-t1)/1000);
+		configXmlContent = updateXml(configXmlContent);
+//long t3 = System.currentTimeMillis();
+//log.info("avenuestack ts2="+(t3-t2)/1000);
+
+		if( avenueXmlFiles != null )
+			tlvCodecs = new TlvCodecs(avenueXmlFiles);
+		else if( avenueConfDir != null )
+			tlvCodecs = new TlvCodecs(avenueConfDir);
+		else
+			throw new Exception("avenue xml files not specified");
+		
 		initRequestHelper();
 		
 		SAXReader saxReader = new SAXReader();
 		saxReader.setEncoding("UTF-8");
-		cfgXml = saxReader.read(new FileInputStream(configXml)).getRootElement(); 
+		cfgXml = saxReader.read(new StringReader(configXmlContent)).getRootElement(); 
 		
-        Element cfgNode = (Element)cfgXml.selectSingleNode("/parameters/AvenueStack");
+        Element cfgNode = (Element)cfgXml.selectSingleNode("/parameters/ThreadNum");
         if( cfgNode != null ) {
-            String s = cfgNode.attributeValue("threadNum","");
-            if( !s.equals("") ) maxThreadNum = Integer.parseInt(s);
-            s = cfgNode.attributeValue("queueSize","");
+            String s = cfgNode.getText();
+            if( !s.equals("") ) threadNum = Integer.parseInt(s);
+        }
+        cfgNode = (Element)cfgXml.selectSingleNode("/parameters/QueueSize");
+        if( cfgNode != null ) {
+            String s = cfgNode.getText();
             if( !s.equals("") ) queueSize = Integer.parseInt(s);
+
         }
         
         threadFactory = new NamedThreadFactory("sosworker");
-        pool = new ThreadPoolExecutor(maxThreadNum, maxThreadNum, 0, TimeUnit.SECONDS, new ArrayBlockingQueue<Runnable>(queueSize),threadFactory);
+        pool = new ThreadPoolExecutor(threadNum, threadNum, 0, TimeUnit.SECONDS, new ArrayBlockingQueue<Runnable>(queueSize),threadFactory);
         pool.prestartAllCoreThreads();
 		
 		asyncLogActor = new AsyncLogActor(this);
@@ -114,9 +180,128 @@ public class AvenueStackImpl implements AvenueStack {
             for(String s:ss)
             	actorMap.put(s, actor);
 		}
-		
 	}
-	
+    
+    boolean loadParameters(String f) {
+    	try {
+    		if( f.startsWith(CLASSPATH_PREFIX)) {
+    			InputStream in = AvenueStackImpl.class.getResourceAsStream(f.substring(CLASSPATH_PREFIX.length()));
+    			parameters.load(in);
+    			in.close();
+    			
+	    	} else {
+	    		FileInputStream in = new FileInputStream(f);
+				parameters.load(in);
+				in.close();
+	    	}
+    		return true;
+		} catch(Exception e) {
+			return false;
+		}
+    }
+    
+    boolean checkExist(String f) {
+    	if( f.startsWith(CLASSPATH_PREFIX)) {
+    		try {
+    			InputStream in = AvenueStackImpl.class.getResourceAsStream(f.substring(CLASSPATH_PREFIX.length()));
+    			in.close();
+    			return true;
+    		} catch(Exception e) {
+    			return false;
+    		}
+    	} else {
+    		return new File(f).exists();
+    	}
+    }
+
+    String prepareConfigFile(String configXml) throws Exception {
+
+    	List<String> lines = null;
+		if( configXml.startsWith(CLASSPATH_PREFIX)) {
+			InputStream in = AvenueStackImpl.class.getResourceAsStream(configXml.substring(CLASSPATH_PREFIX.length()));
+			lines = IOUtils.readLines(in, "UTF-8");
+			in.close();
+    	} else {
+    		FileInputStream in = new FileInputStream(configXml);
+			lines = IOUtils.readLines(in, "UTF-8");
+			in.close();
+    	}
+
+        if( lines.size() > 0 ) {
+
+            for( int i = 0; i < lines.size(); ++i ) {
+                String s = lines.get(i);
+                if( s.indexOf("@") >= 0 ) {
+                    String ns = replaceParameter(s);
+                    lines.set(i,ns);
+                }
+            }
+
+        }
+
+        StringBuilder buff = new StringBuilder();
+        for( int i = 0; i < lines.size(); ++i ) {
+            buff.append(lines.get(i)).append("\n");
+        }
+        return buff.toString();
+    }
+
+    static Pattern pReg = Pattern.compile(".*(@[0-9a-zA-Z_-]+)[ <\\]\"].*"); // allowed: @xxx< @xxx]]> @xxx[SPACE]
+    static Pattern pReg2 = Pattern.compile(".*(@[0-9a-zA-Z_-]+)$"); // allowed: @xxx
+
+    String replaceParameter(String s) {
+    	String ns = s;
+    	while(true) {
+    		String ns2 = replaceParameterInternal(ns);
+    		if( ns2.equals(ns) ) return ns;
+    		ns = ns2;
+    	}
+    }
+    
+    String replaceParameterInternal(String s) {
+
+    	Matcher matchlist = pReg.matcher(s);
+        if( !matchlist.matches() ) {
+            matchlist = pReg2.matcher(s);
+        }
+        if( !matchlist.matches() ) {
+            return s;
+        }
+
+        String ns = s; 
+        MatchResult	mr = matchlist.toMatchResult();
+        
+        int cnt = mr.groupCount();
+        for( int i=1; i<=cnt; ++i ) {
+        	String name = mr.group(i);
+            String v = getParameter(name);
+            if( v != null ) {
+                ns = ns.replace(name,v);
+            } else {
+            	ns = ns.replace(name,"");
+            }
+        }
+        return ns;
+    }
+    
+    String updateXml(String xml) throws Exception {
+
+		SAXReader saxReader = new SAXReader();
+		saxReader.setEncoding("UTF-8");
+		Element tXml = saxReader.read(new StringReader(xml)).getRootElement();
+		
+        String outputXml = xml;
+        
+        Element cfgNode = (Element)tXml.selectSingleNode("/parameters/EtcdRegistry");
+        if( cfgNode != null ) {
+        	etcdPlugin = new EtcdPlugin(this,cfgNode);
+        	etcdPlugin.init();
+        	outputXml = etcdPlugin.updateXml(outputXml);
+        }
+        
+        return outputXml;
+    }
+    	
 	public void initRequestHelper(){
 		List<Integer> serviceIds = tlvCodecs.allServiceIds();
 		for(int serviceId:serviceIds) {
@@ -129,16 +314,12 @@ public class AvenueStackImpl implements AvenueStack {
 			}
 		}
 	}
-	
-	public String getConfig(String key,String defaultValue) {
-		String s = parameters.get(key);
-		if( s == null ) return defaultValue;
-		return s;
-	}
-	
+
 	public void start() {
 		if( sos != null)
 			sos.start();
+		
+		started.set(true);
 	}
 	
 	public void closeReadChannel() {
@@ -147,6 +328,10 @@ public class AvenueStackImpl implements AvenueStack {
 	}
 
 	public void close() {
+
+		if( etcdPlugin != null )
+			etcdPlugin.close();
+		
 		for(Actor soc: actorMap.values()) {
 			if( soc instanceof SocActor ) {
 				((SocActor)soc).close();
@@ -167,6 +352,7 @@ public class AvenueStackImpl implements AvenueStack {
         }
 		
 		asyncLogActor.close();
+		
 		
 		log.info("avenuestack closed");
 	}
@@ -424,7 +610,18 @@ public class AvenueStackImpl implements AvenueStack {
 	public TlvCodecs codecs() {
 		return tlvCodecs;
 	}
+	
+	public Actor getActor(String serviceId) {
+		return actorMap.get(serviceId);
+	}
+	
+	public boolean isStarted() {
+		return started.get();
+	}
 
+	
+	
+	
 	public String getConfDir() {
 		return confDir;
 	}
@@ -441,5 +638,53 @@ public class AvenueStackImpl implements AvenueStack {
 		this.profile = profile;
 	}
 	
+	public ArrayList<String> getAvenueXmlFiles() {
+		return avenueXmlFiles;
+	}
+
+	public void setAvenueXmlFiles(ArrayList<String> avenueXmlFiles) {
+		this.avenueXmlFiles = avenueXmlFiles;
+	}
+
+	public String getAvenueConfDir() {
+		return avenueConfDir;
+	}
+
+	public void setAvenueConfDir(String avenueConfDir) {
+		this.avenueConfDir = avenueConfDir;
+	}
+
+	public Properties getParameters() {
+		return parameters;
+	}
+
+	public void setParameters(Properties parameters) {
+		this.parameters = parameters;
+	}
+
+	public int getThreadNum() {
+		return threadNum;
+	}
+
+	public void setThreadNum(int threadNum) {
+		this.threadNum = threadNum;
+	}
+
+	public int getQueueSize() {
+		return queueSize;
+	}
+
+	public void setQueueSize(int queueSize) {
+		this.queueSize = queueSize;
+	}
+
+	public String getDataDir() {
+		return dataDir;
+	}
+
+	public void setDataDir(String dataDir) {
+		this.dataDir = dataDir;
+	}
+
 }
 
