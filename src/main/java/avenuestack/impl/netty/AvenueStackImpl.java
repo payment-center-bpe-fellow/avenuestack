@@ -466,6 +466,7 @@ public class AvenueStackImpl implements AvenueStack {
 
         //persistCommit(info.req, res.code)
 
+		if(body == null )  body = new HashMap<String, Object>();
         TlvCodec tlvCodec = tlvCodecs.findTlvCodec(req.getServiceId());
         if( tlvCodec == null ) {
         	Response res = new Response(code,body,req);
@@ -521,24 +522,59 @@ public class AvenueStackImpl implements AvenueStack {
 	public void receiveResponse(final RequestResponseInfo reqres) {
 		asyncLogActor.receive(reqres);
 
-        try {
-            pool.execute( new Runnable() {
-                public void run() {
-                    try {
-                		Request req = reqres.req;
-                		Response res = reqres.res;
-                		ResponseReceiver rcv = (ResponseReceiver)req.getSender(); // 消息一定来源于某个rcv
-                		rcv.receiveResponse(req, res);
-                    } catch(Exception e) {
-                        log.error("avenuestatck exception, req="+reqres.req.toString()+", res="+reqres.res.toString()+", e="+e.getMessage(),e);
-                    }
-                }
-            });
-        } catch(RejectedExecutionException e) {
-            // ignore the message
-            log.error("avenuestatck queue is full,req="+reqres.req.toString()+",res="+reqres.res.toString());
-        }
+		if( reqres.req.getSender() instanceof SyncedResponseReceiver ) {  // 使用sendRequestWithReturn调用的，直接回调，不用worker线程池调用
+			try {
+        		Request req = reqres.req;
+        		Response res = reqres.res;
+        		ResponseReceiver rcv = (ResponseReceiver)req.getSender(); // 消息一定来源于某个rcv
+        		rcv.receiveResponse(req, res);
+            } catch(Exception e) {
+                log.error("avenuestatck exception, req="+reqres.req.toString()+", res="+reqres.res.toString()+", e="+e.getMessage(),e);
+            }
+		} else {
+	        try {
+	            pool.execute( new Runnable() {
+	                public void run() {
+	                    try {
+	                		Request req = reqres.req;
+	                		Response res = reqres.res;
+	                		ResponseReceiver rcv = (ResponseReceiver)req.getSender(); // 消息一定来源于某个rcv
+	                		rcv.receiveResponse(req, res);
+	                    } catch(Exception e) {
+	                        log.error("avenuestatck exception, req="+reqres.req.toString()+", res="+reqres.res.toString()+", e="+e.getMessage(),e);
+	                    }
+	                }
+	            });
+	        } catch(RejectedExecutionException e) {
+	            // ignore the message
+	            log.error("avenuestatck queue is full,req="+reqres.req.toString()+",res="+reqres.res.toString());
+	        }
+		}
         
+	}
+	
+	class SyncedResponseReceiver implements  ResponseReceiver {
+		
+		ReentrantLock lock;
+		Condition responsed;
+		AtomicReference<Response> r;
+		
+		SyncedResponseReceiver(ReentrantLock lock,Condition responsed,AtomicReference<Response> r) {
+			this.lock = lock;
+			this.responsed = responsed;
+			this.r = r;
+		}
+		
+		public void receiveResponse(Request req,Response res) {
+			lock.lock();
+			try {
+				r.set(res);
+				responsed.signal();
+			} finally {
+				lock.unlock();
+			}
+		}
+		
 	}
 	
 	public Response sendRequestWithReturn(Request req,int timeout) {
@@ -554,18 +590,7 @@ public class AvenueStackImpl implements AvenueStack {
 		final ReentrantLock lock = new ReentrantLock();
 		final Condition responsed  = lock.newCondition(); 
 		final AtomicReference<Response> r = new AtomicReference<Response>(); 
-		ResponseReceiver resrcv = new ResponseReceiver() {
-			public void receiveResponse(Request req,Response res) {
-				lock.lock();
-				try {
-					r.set(res);
-					responsed.signal();
-				} finally {
-					lock.unlock();
-				}
-			}
-		};
-		
+		ResponseReceiver resrcv = new SyncedResponseReceiver(lock,responsed,r);
 		req.setSender(resrcv);
 		lock.lock();
 		try {
@@ -574,18 +599,12 @@ public class AvenueStackImpl implements AvenueStack {
 				boolean ok = responsed.await(timeout,TimeUnit.MILLISECONDS);
 				if( ok ) {
 					Response res = r.get();
-					RequestResponseInfo info = new RequestResponseInfo(req,res);
-					asyncLogActor.receive(info);
 					return res;
 				}
 				Response res = new Response(ErrorCodes.SERVICE_TIMEOUT,new HashMap<String,Object>(),req);
-				RequestResponseInfo info = new RequestResponseInfo(req,res);
-				asyncLogActor.receive(info);
 				return res;
 			} catch(InterruptedException e) {
 				Response res = new Response(ErrorCodes.NETWORK_ERROR,new HashMap<String,Object>(),req);
-				RequestResponseInfo info = new RequestResponseInfo(req,res);
-				asyncLogActor.receive(info);
 				return res;
 			}
 		} finally {
