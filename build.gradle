@@ -36,7 +36,7 @@ uploadArchives {
     repositories {
         mavenDeployer {
             repository(url: "http://192.168.109.91:8081/nexus/content/repositories/releases/") {
-                authentication(userName: "xxxx", password: "yyyy")
+                authentication(userName: "xxx", password: "xxxx")
             }
             pom.version = "$version"
             pom.artifactId = "avenuestack"

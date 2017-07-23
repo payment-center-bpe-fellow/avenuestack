@@ -99,8 +99,6 @@ public class AvenueStackImpl implements AvenueStack {
 	}
 	
 	public void init() throws Exception {
-//long t1 = System.currentTimeMillis();
-//log.info("avenuestack initing");
 
     	String configXml = null;
     	String parameterFile = null;
@@ -123,11 +121,7 @@ public class AvenueStackImpl implements AvenueStack {
 		loadParameters(parameterFile);
 		
 		String configXmlContent = prepareConfigFile(configXml);
-//long t2 = System.currentTimeMillis();
-//log.info("avenuestack ts1="+(t2-t1)/1000);
 		configXmlContent = updateXml(configXmlContent);
-//long t3 = System.currentTimeMillis();
-//log.info("avenuestack ts2="+(t3-t2)/1000);
 
 		if( avenueXmlFiles != null )
 			tlvCodecs = new TlvCodecs(avenueXmlFiles);
