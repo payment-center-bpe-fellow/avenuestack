@@ -1,12 +1,13 @@
 package avenuestack.impl.netty;
 
-import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.util.HashedWheelTimer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,11 +17,12 @@ import avenuestack.Request;
 import avenuestack.Response;
 import avenuestack.impl.avenue.AvenueCodec;
 import avenuestack.impl.avenue.AvenueData;
-import avenuestack.impl.avenue.ByteBufferWithReturnCode;
+import avenuestack.impl.avenue.BufferWithReturnCode;
 import avenuestack.impl.avenue.MapWithReturnCode;
 import avenuestack.impl.avenue.TlvCodec;
 import avenuestack.impl.avenue.TlvCodec4Xhead;
 import avenuestack.impl.avenue.TlvCodecs;
+import avenuestack.impl.avenue.Xhead;
 import avenuestack.impl.util.QuickTimerEngine;
 import avenuestack.impl.util.RequestIdGenerator;
 
@@ -30,7 +32,6 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
 
 	String addrs;
 	TlvCodecs codecs;
-    //val receiver_f: (Any)=>Unit;
     int retryTimes  = 2;
     int connectTimeout  = 15000;
     int pingInterval= 60000;
@@ -43,6 +44,7 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
     boolean needShakeHands = false;
     String shakeHandsTo = null;
     String shakeHandsPubKey = null;
+    int pingVersion = 1;
     
     ThreadPoolExecutor bossExecutor = null;
     ThreadPoolExecutor workerExecutor = null;
@@ -55,7 +57,7 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
     int startPort = -1;
     Actor actor = null;
 	
-	ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
+    ChannelBuffer EMPTY_BUFFER = ChannelBuffers.buffer(0);
 	NettyClient nettyClient;
 	public NettyClient getNettyClient() {
 		return nettyClient;
@@ -139,7 +141,7 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
     int send(AvenueData data,int timeout) {
         try {
 
-        	ByteBuffer buff = AvenueCodec.encode(data);
+        	ChannelBuffer buff = AvenueCodec.encode(data);
 
             boolean ok = nettyClient.send(data.sequence,buff,timeout);
             if( ok ) return 0;
@@ -208,7 +210,7 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
     	
         try {
 
-        	ByteBuffer buff = AvenueCodec.encode(data);
+        	ChannelBuffer buff = AvenueCodec.encode(data);
 
             boolean ok = nettyClient.sendByAddr(data.sequence,buff,timeout,addr);
             if( ok ) return 0;
@@ -226,7 +228,7 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
             if( connId != null && !connId.equals("") )
                 key = keyMap.get(connId);
 
-            ByteBuffer buff = AvenueCodec.encode(data,key);
+            ChannelBuffer buff = AvenueCodec.encode(data,key);
 
             boolean ok = nettyClient.sendByConnId(data.sequence,buff,timeout,connId);
             if( ok ) return 0; 
@@ -240,6 +242,7 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
     int sendAck(RawRequest rawReq) {
     	AvenueData data = new AvenueData (
             AvenueCodec.TYPE_RESPONSE,
+            rawReq.data.version,
             rawReq.data.serviceId,
             rawReq.data.msgId,
             rawReq.data.sequence,
@@ -255,6 +258,7 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
     int sendErrorCode(RawRequest rawReq,int code) {
     	AvenueData data = new AvenueData (
             AvenueCodec.TYPE_RESPONSE,
+            rawReq.data.version,
             rawReq.data.serviceId,
             rawReq.data.msgId,
             rawReq.data.sequence,
@@ -275,7 +279,7 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
         String key = keyMap.get(connId);
 
         try {
-            ByteBuffer buff = AvenueCodec.encode(data,key);
+        	ChannelBuffer buff = AvenueCodec.encode(data,key);
             boolean ok = nettyClient.sendResponse(data.sequence,buff,connId);
             if( ok ) return 0;
             else return ErrorCodes.NETWORK_ERROR;
@@ -353,7 +357,7 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
       }
     }
     
-    public Soc4NettySequenceInfo receive(ByteBuffer res, String connId) {
+    public Soc4NettySequenceInfo receive(ChannelBuffer res, String connId) {
 
     	AvenueData data;
 
@@ -375,7 +379,7 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
 
 	                // append remote addr to xhead, the last addr is always remote addr
 	                try {
-	                    data.xhead = TlvCodec4Xhead.appendGsInfo(data.xhead,parseRemoteAddr(connId));
+	                    TlvCodec4Xhead.appendAddr(data.xhead, parseRemoteAddr(connId), false, data.version);
 	                } catch(Exception e) {
 	                }
 	
@@ -443,12 +447,13 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
 
     }
 
-    public ByteBuffer generatePing() {
+    public ChannelBuffer generatePing() {
 
         int seq = generateSequence();
 
         AvenueData res = new AvenueData (
             AvenueCodec.TYPE_REQUEST,
+            pingVersion,
             0,
             0,
             seq,
@@ -458,22 +463,24 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
             EMPTY_BUFFER,
             EMPTY_BUFFER );
 
-        ByteBuffer bb = AvenueCodec.encode(res);
+        ChannelBuffer bb = AvenueCodec.encode(res);
         return bb;
     }
 
-    public ByteBuffer generateReportSpsId() {
+    public ChannelBuffer generateReportSpsId() {
 
         if( reportSpsTo.equals("0:0") ) return null;
 
         int seq = generateSequence();
 
         HashMap<String,Object> xhead = new HashMap<String,Object>();
-        xhead.put(AvenueCodec.KEY_SPS_ID,TlvCodec4Xhead.SPS_ID_0);
+        xhead.put(Xhead.KEY_SPS_ID,TlvCodec4Xhead.SPS_ID_0);
         String[] reportSpsInfo = reportSpsTo.split(":");
-        ByteBuffer xheadbuff = TlvCodec4Xhead.encode(Integer.parseInt(reportSpsInfo[0]),xhead);
+        int version = codecs.version(Integer.parseInt(reportSpsInfo[0]));
+        ChannelBuffer xheadbuff = TlvCodec4Xhead.encode(Integer.parseInt(reportSpsInfo[0]),xhead,version);
         AvenueData res = new AvenueData (
             AvenueCodec.TYPE_REQUEST,
+            version,
             Integer.parseInt(reportSpsInfo[0]),
             Integer.parseInt(reportSpsInfo[1]),
             seq,
@@ -483,7 +490,7 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
             xheadbuff,
             EMPTY_BUFFER );
 
-        ByteBuffer bb = AvenueCodec.encode(res);
+        ChannelBuffer bb = AvenueCodec.encode(res);
         return bb;
     }
 
@@ -504,6 +511,7 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
         int sequence = generateSequence();
         AvenueData data = new AvenueData(
             AvenueCodec.TYPE_REQUEST,
+            codecs.version(req.serviceId),
             req.serviceId,
             req.msgId,
             sequence,
@@ -533,8 +541,9 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
 
         int sequence = generateSequence();
         req.setSequence(sequence);
-        ByteBuffer xhead = TlvCodec4Xhead.encode(req.getServiceId(),req.getXhead());
-        ByteBufferWithReturnCode d = tlvCodec.encodeRequest(req.getMsgId(),req.getBody(),req.getEncoding());
+        int version = tlvCodec.version;
+        ChannelBuffer xhead = TlvCodec4Xhead.encode(req.getServiceId(),req.getXhead(),version);
+        BufferWithReturnCode d = tlvCodec.encodeRequest(req.getMsgId(),req.getBody(),req.getEncoding());
         if( d.ec !=  0 ) {
             log.error("encode request error, serviceId="+req.getServiceId()+", msgId="+req.getMsgId());
 
@@ -545,6 +554,7 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
 
         AvenueData data = new AvenueData(
             AvenueCodec.TYPE_REQUEST,
+            version,
             req.getServiceId(),
             req.getMsgId(),
             sequence,
@@ -572,6 +582,7 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
     	AvenueData data = rawReq.data;
         AvenueData res = new AvenueData(
             AvenueCodec.TYPE_RESPONSE,
+            data.version,
             data.serviceId,
             data.msgId,
             data.sequence,
@@ -600,6 +611,7 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
 	
                 	AvenueData res = new AvenueData(
 	                    AvenueCodec.TYPE_RESPONSE,
+	                    rawReq.data.version,
 	                    rawReq.data.serviceId,
 	                    rawReq.data.msgId,
 	                    rawReq.data.sequence,
@@ -742,23 +754,7 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
                     MapWithReturnCode d = tlvCodec.decodeRequest(vv.data.msgId,vv.data.body,vv.data.encoding);
                     if( d.ec != 0 ) {
                         log.error("decode request error, serviceId="+vv.data.serviceId+", msgId="+vv.data.msgId);
-                        
-                        AvenueData res = new AvenueData(
-                                AvenueCodec.TYPE_RESPONSE,
-                                vv.data.serviceId,
-                                vv.data.msgId,
-                                vv.data.sequence,
-                                0,
-                                vv.data.encoding,
-                                d.ec,
-                                EMPTY_BUFFER,
-                                EMPTY_BUFFER );
-
-                        int ret = sendResponse(res,vv.connId);
-                        if(ret != 0 ) {
-                            log.error("send response error");
-                        }
-                            
+                        send(vv.data,d.ec,vv.connId);
                         return;
                     }
 
@@ -783,6 +779,27 @@ public class SocImpl implements Soc4Netty { // with Logging with Dumpable
             return;
         }
     }
+    
+    void send(AvenueData req , int errorCode, String connId) {
+
+    	AvenueData data = new AvenueData(
+                AvenueCodec.TYPE_RESPONSE,
+                req.version,
+                req.serviceId,
+                req.msgId,
+                req.sequence,
+                0,
+                req.encoding,
+                errorCode,
+                EMPTY_BUFFER,
+                EMPTY_BUFFER);
+
+            int ret = sendResponse(data, connId);
+            if (ret != 0) {
+                log.error("send response error");
+            }
+
+        }
 
     String parseRemoteAddr(String connId) {
 

@@ -21,7 +21,8 @@ public class TlvCodecs {
 	
 	HashMap<Integer,TlvCodec> codecs_id = new HashMap<Integer,TlvCodec>();
 	HashMap<String,TlvCodec> codecs_names = new HashMap<String,TlvCodec>();
-	
+	HashMap<Integer,Integer> version_map = new HashMap<Integer,Integer>();
+			
 	public TlvCodecs(String dir) throws Exception {
 		init(getAllXmlFiles(dir));
 	}
@@ -68,9 +69,7 @@ public class TlvCodecs {
     public void init(ArrayList<String> allxmls) throws Exception {
 
         for(String f : allxmls ) {
-
             try {
-            	
         		SAXReader saxReader = new SAXReader();
         		saxReader.setEncoding("UTF-8");
         		
@@ -83,8 +82,8 @@ public class TlvCodecs {
         		Element cfgXml = saxReader.read(in).getRootElement();
         		in.close();
 
-                String name = cfgXml.attributeValue("name").toLowerCase();
                 int id = Integer.parseInt(cfgXml.attributeValue("id"));
+                String name = cfgXml.attributeValue("name").toLowerCase();
 
                 TlvCodec codec = new TlvCodec(f);
 
@@ -97,16 +96,13 @@ public class TlvCodecs {
 
                 codecs_id.put(id,codec);
                 codecs_names.put(name,codec);
+                
+                parseVersion(id, cfgXml);
+                
             } catch(Exception e) {
                     log.error("load xml failed, f="+f);
                     throw e;
             }
-        }
-
-        if( log.isDebugEnabled()) {
-            log.debug("validator size="+Validator.cache.size());
-            log.debug("encoder size="+Encoder.cache.size());
-            log.debug("tlvfieldinfo size="+TlvFieldInfo.cache.size());
         }
     }
     
@@ -151,6 +147,18 @@ public class TlvCodecs {
         	list.add(i);
         return list;
     }
+    public void parseVersion(int serviceId, Element cfgXml) {
+        String version = cfgXml.attributeValue("version","");
+        if (!version.equals(""))
+            version_map.put(serviceId, Integer.parseInt(version));
+        else
+            version_map.put(serviceId, 1);
+    }
 
+    public int version(int serviceId)  {
+        Integer v = version_map.get(serviceId);
+        if( v == null ) return 1;
+        return v;
+    }
 }
 

@@ -110,6 +110,50 @@ public class WrappedMap {
    		return v;
     }  
     
+    public ArrayList<Long> ll(String name) {
+    	Object v = body.get(name);
+    	if(v == null) return null;
+    	if( v instanceof ArrayList ) {
+    		ArrayList list = (ArrayList)v;
+    		if( list.size() == 0 ) return list;
+    		if( list.get(0) instanceof Long ) return list;
+    		ArrayList<Long> newlist = new ArrayList<Long>();
+    		for( Object o : list ) {
+   				newlist.add(anyToLong(o));
+    		}
+    		return newlist;
+    	}
+    	return null;
+    }    
+    
+    public ArrayList<Long> nll(String name) {
+    	ArrayList<Long> v = ll(name);
+    	if( v == null ) return new ArrayList<Long>();
+   		return v;
+    }  
+
+    public ArrayList<Double> ld(String name) {
+    	Object v = body.get(name);
+    	if(v == null) return null;
+    	if( v instanceof ArrayList ) {
+    		ArrayList list = (ArrayList)v;
+    		if( list.size() == 0 ) return list;
+    		if( list.get(0) instanceof Double ) return list;
+    		ArrayList<Double> newlist = new ArrayList<Double>();
+    		for( Object o : list ) {
+   				newlist.add(anyToDouble(o));
+    		}
+    		return newlist;
+    	}
+    	return null;
+    }    
+    
+    public ArrayList<Double> nld(String name) {
+    	ArrayList<Double> v = ld(name);
+    	if( v == null ) return new ArrayList<Double>();
+   		return v;
+    }  
+    
     public ArrayList<WrappedMap> lm(String name) {
     	Object v = body.get(name);
     	if(v == null) return null;
@@ -188,6 +232,9 @@ public class WrappedMap {
 	
 	public WrappedMap anyToMap(Object v) {
 		if(v == null) return null;
+		if( v instanceof WrappedMap) {
+			return (WrappedMap)v;
+		}		
 		if( v instanceof HashMap) {
 			return new WrappedMap((HashMap<String,Object>)v);
 		}

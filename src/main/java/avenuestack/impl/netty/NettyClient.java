@@ -1,7 +1,6 @@
 package avenuestack.impl.netty;
 
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -15,7 +14,6 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -41,6 +39,7 @@ import org.jboss.netty.util.TimerTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import avenuestack.impl.avenue.TlvCodec4Xhead;
 import avenuestack.impl.util.ArrayHelper;
 import avenuestack.impl.util.NamedThreadFactory;
 import avenuestack.impl.util.QuickTimer;
@@ -645,11 +644,10 @@ public class NettyClient { // with Dumpable
                 }
 
                 if( isSps ) {
-                    ByteBuffer buff = soc.generateReportSpsId();
+                	ChannelBuffer buff = soc.generateReportSpsId();
                     if( buff != null ) {
                         updateSpsId(buff,connInfo);
-                        ChannelBuffer reqBuf = ChannelBuffers.wrappedBuffer(buff);
-                        ch.write(reqBuf);
+                        ch.write(buff);
                     }
                 }
             	
@@ -862,7 +860,7 @@ public class NettyClient { // with Dumpable
     }
     
  
-    boolean send(int sequence,ByteBuffer buff,int timeout) {
+    boolean send(int sequence,ChannelBuffer buff,int timeout) {
 
     	ChannelAndIdx ci = nextChannel(sequence,timeout);
 
@@ -871,15 +869,12 @@ public class NettyClient { // with Dumpable
         }
 
         if( isSps ) updateSpsId(buff,ci.connInfo);
-
-        ChannelBuffer reqBuf = ChannelBuffers.wrappedBuffer(buff);
-        ci.ch.write(reqBuf);
+        ci.ch.write(buff);
 
         return true;
     }
 
-
-    boolean sendByAddr(int sequence,ByteBuffer buff ,int timeout,String addr) {
+    boolean sendByAddr(int sequence,ChannelBuffer buff ,int timeout,String addr) {
 
     	ChannelAndIdx ci = nextChannel(sequence,timeout,addr);
 
@@ -888,24 +883,16 @@ public class NettyClient { // with Dumpable
         }
 
         if( isSps ) updateSpsId(buff,ci.connInfo);
-        ChannelBuffer reqBuf = ChannelBuffers.wrappedBuffer(buff);
-        ci.ch.write(reqBuf);
+        ci.ch.write(buff);
 
         return true;
     }
 
-    void updateSpsId(ByteBuffer buff,ConnInfo connInfo) {
-        byte[] array = buff.array();
-        String spsId = connInfo.guid;
-        byte[] spsIdArray = spsId.getBytes(); // "ISO-8859-1"
-        int i = 0;
-        while( i < spsIdArray.length ) {
-            array[44+4+i] = spsIdArray[i] ;// start from the xhead (44), skip the xhead spsId head (4)
-            i += 1;
-        }
+    void updateSpsId(ChannelBuffer buff, ConnInfo connInfo) {
+        TlvCodec4Xhead.updateSpsId(buff,connInfo.guid);
     }
 
-    boolean sendByConnId(int sequence, ByteBuffer buff ,int timeout,String connId) {
+    boolean sendByConnId(int sequence, ChannelBuffer buff ,int timeout,String connId) {
 
         Channel ch = nextChannelFromMap(sequence,timeout,connId);
 
@@ -913,13 +900,12 @@ public class NettyClient { // with Dumpable
             return false;
         }
 
-        ChannelBuffer reqBuf = ChannelBuffers.wrappedBuffer(buff);
-        ch.write(reqBuf);
+        ch.write(buff);
 
         return true;
     }
 
-    boolean sendResponse(int sequence,ByteBuffer buff,String connId) {
+    boolean sendResponse(int sequence,ChannelBuffer buff,String connId) {
 
     	Channel ch = null;
 
@@ -945,8 +931,7 @@ public class NettyClient { // with Dumpable
             return false;
         }
 
-        ChannelBuffer reqBuf = ChannelBuffers.wrappedBuffer(buff);
-        ch.write(reqBuf);
+        ch.write(buff);
 
         return true;
     }
@@ -974,7 +959,7 @@ public class NettyClient { // with Dumpable
 
     }
 
-    void onReceive(ByteBuffer buff,String connId) {
+    void onReceive(ChannelBuffer buff,String connId) {
 
     	Soc4NettySequenceInfo si = soc.receive(buff,connId);
 
@@ -1019,9 +1004,8 @@ public class NettyClient { // with Dumpable
     public void messageReceived(ChannelHandlerContext ctx,MessageEvent e){
         //Channel ch = e.getChannel();
         String connId = (String)ctx.getAttachment();
-        ChannelBuffer buf = (ChannelBuffer)e.getMessage();
-        ByteBuffer bb = buf.toByteBuffer();
-        onReceive(bb,connId);
+        ChannelBuffer buff = (ChannelBuffer)e.getMessage();
+        onReceive(buff,connId);
     }
 
     public void channelConnected(ChannelHandlerContext ctx,ChannelStateEvent e) {
@@ -1047,9 +1031,8 @@ public class NettyClient { // with Dumpable
 
     public void channelIdle(ChannelHandlerContext ctx,IdleStateEvent e) {
     	Channel ch = e.getChannel();
-        ByteBuffer buff = soc.generatePing();
-        ChannelBuffer reqBuf = ChannelBuffers.wrappedBuffer(buff);
-        ch.write(reqBuf);
+    	ChannelBuffer buff = soc.generatePing();
+        ch.write(buff);
     }
 
     class PipelineFactory implements ChannelPipelineFactory {

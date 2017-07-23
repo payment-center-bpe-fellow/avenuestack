@@ -1,10 +1,7 @@
 package avenuestack.impl.avenue;
 
-import static avenuestack.impl.util.ArrayHelper.mkString;
-
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -12,1473 +9,1854 @@ import java.util.Map;
 
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import avenuestack.ErrorCodes;
-import avenuestack.impl.util.ArrayHelper;
 import avenuestack.impl.util.TypeSafe;
+import static avenuestack.impl.avenue.TlvType.*;
 
 public class TlvCodec {
 
 	static Logger log = LoggerFactory.getLogger(TlvCodec.class);
 
 	static String CLASSPATH_PREFIX = "classpath:";
-	
-	static final int CLS_ARRAY = -2;
-	static final int CLS_UNKNOWN = -1;
 
-	static final int CLS_STRING = 1;
-	static final int CLS_INT = 2;
-	static final int CLS_STRUCT = 3;
+	static HashMap<String, String> EMPTY_STRINGMAP = new HashMap<String, String>();
+	static ChannelBuffer EMPTY_BUFFER = ChannelBuffers.buffer(0);
+	static String CONVERTED_FLAG = "__converted__";
 
-	static final int CLS_STRINGARRAY = 4;
-	static final int CLS_INTARRAY = 5;
-	static final int CLS_STRUCTARRAY = 6;
+	static String hexDump(ChannelBuffer buff) {
+		String s = ChannelBuffers.hexDump(buff, 0, buff.writerIndex());
+		StringBuilder sb = new StringBuilder();
+		int i = 0;
+		int cnt = 0;
+		sb.append("\n");
+		while (i < s.length()) {
+			sb.append(s.charAt(i));
+			i += 1;
+			cnt += 1;
+			if ((cnt % 2) == 0)
+				sb.append(" ");
+			if ((cnt % 8) == 0)
+				sb.append("  ");
+			if ((cnt % 16) == 0)
+				sb.append("\n");
+		}
+		return sb.toString();
+	}
 
-	static final int CLS_BYTES = 7;
+	static void writePad(ChannelBuffer buff) {
+		int pad = aligned(buff.writerIndex()) - buff.writerIndex();
+		switch (pad) {
+		case 0:
+			break;
+		case 1:
+			buff.writeByte(0);
+			break;
+		case 2:
+			buff.writeByte(0);
+			buff.writeByte(0);
+			break;
+		case 3:
+			buff.writeByte(0);
+			buff.writeByte(0);
+			buff.writeByte(0);
+			break;
+		default:
+			break;
+		}
+	}
 
-	static final int CLS_SYSTEMSTRING = 8; // used only in struct
-	
-	static final String[] EMPTY_STRINGARRAY = new String[0];
-	static final HashMap<String,String> EMPTY_STRINGMAP = new HashMap<String,String>();
-	
-    static int MASK = 0xFF;
-    static char[] HEX_CHARS = new char[]{'0', '1', '2', '3', '4', '5', '6','7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+	static void skipRead(ChannelBuffer buff, int n) {
+		int newposition = Math.min(buff.readerIndex() + n, buff.writerIndex());
+		buff.readerIndex(newposition);
+	}
 
-    static boolean isArray(int cls) { return cls == CLS_STRINGARRAY || cls == CLS_INTARRAY || cls == CLS_STRUCTARRAY; }
+	static String readString(ChannelBuffer buff, int len, String encoding) {
+		byte[] bytes = new byte[len];
+		buff.getBytes(buff.readerIndex(), bytes);
+		skipRead(buff, aligned(len));
+		try {
+			return new String(bytes, encoding);
+		} catch (Exception e) {
+			return "";
+		}
+	}
 
-    static int clsToArrayType(int cls) {
-        switch(cls) {
-            case CLS_STRING:
-            	return CLS_STRINGARRAY;
-            case CLS_INT:
-            	return CLS_INTARRAY;
-            case CLS_STRUCT:
-            	return CLS_STRUCTARRAY;
-            default: 
-            	return CLS_UNKNOWN;
-        }
-    }
+	static String getString(ChannelBuffer buff, int len, String encoding) {
+		byte[] bytes = new byte[len];
+		buff.getBytes(buff.readerIndex(), bytes);
+		try {
+			return new String(bytes, encoding);
+		} catch (Exception e) {
+			return "";
+		}
+	}
 
-    static int clsToInt(String cls) {
-    	return clsToInt(cls,"");
-    }
-    
-    static int clsToInt(String cls,String isbytes) {
-        String lcls = cls.toLowerCase();
-        if(lcls.equals("string")) {
-        	if( isbytes.equals("1") || isbytes.equals("true")  || isbytes.equals("TRUE") || isbytes.equals("y") || isbytes.equals("YES") )
-        		return CLS_BYTES; 
-        	else 
-        		return CLS_STRING;
-        }
-        if(lcls.equals("int")) {
-        	return CLS_INT;
-        }
-        if(lcls.equals("struct")) {
-        	return CLS_STRUCT;
-        }
-        if(lcls.equals("array")) {
-        	return CLS_ARRAY;
-        }
-        if(lcls.equals("systemstring")) {
-        	return CLS_SYSTEMSTRING;
-        }
-        return CLS_UNKNOWN;
-    }
+	static int aligned(int len) {
+		if ((len & 0x03) != 0)
+			return ((len >> 2) + 1) << 2;
+		else
+			return len;
+	}
 
-    static String bytes2hex(byte[] b) {
-        StringBuilder ss = new StringBuilder();
-
-        for ( int i = 0; i< b.length; ++i ) {
-            int t = b[i] & MASK;
-            int hi = t / 16;
-            int lo = t % 16;
-            ss.append( HEX_CHARS[hi] );
-            ss.append( HEX_CHARS[lo] );
-            ss.append(" ");
-        }
-
-        return ss.toString().trim();
-    }
-
-    static String toHexString(ByteBuffer buff) {
-        return bytes2hex(buff.array());
-    }
-    
 	String configFile;
 
-    int bufferSize = 1000;
-    ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
+	public int serviceId;
+	public String serviceOrigName;
+	public String serviceName;
+	public int version = 1;
 
-    public HashMap<Integer,TlvType> typeCodeToNameMap = new HashMap<Integer,TlvType>();
-    public HashMap<String,TlvType> typeNameToCodeMap = new HashMap<String,TlvType>();
+	// public ArrayList<Integer> msgIds = new ArrayList<Integer>();
 
-    public HashMap<Integer,String> msgIdToNameMap = new HashMap<Integer,String>();
-    public HashMap<String,Integer> msgNameToIdMap = new HashMap<String,Integer>();
-    public HashMap<Integer,String> msgIdToOrigNameMap = new HashMap<Integer,String>();
+	public HashMap<Integer, TlvType> typeCodeToNameMap = new HashMap<Integer, TlvType>();
+	public HashMap<String, TlvType> typeNameToCodeMap = new HashMap<String, TlvType>();
 
-    public HashMap<Integer,HashMap<String,String>> msgKeyToTypeMapForReq = new HashMap<Integer,HashMap<String,String>>();
-    public HashMap<Integer,HashMap<String,String>> msgTypeToKeyMapForReq = new HashMap<Integer,HashMap<String,String>>();
-    public HashMap<Integer,ArrayList<String>> msgKeysForReq = new HashMap<Integer,ArrayList<String>>();
-    public HashMap<Integer,HashMap<String,TlvFieldInfo>> msgKeyToFieldInfoMapForReq = new HashMap<Integer,HashMap<String,TlvFieldInfo>>();
+	public HashMap<Integer, String> msgIdToNameMap = new HashMap<Integer, String>();
+	public HashMap<String, Integer> msgNameToIdMap = new HashMap<String, Integer>();
+	public HashMap<Integer, String> msgIdToOrigNameMap = new HashMap<Integer, String>();
 
-    public HashMap<Integer,HashMap<String,String>> msgKeyToTypeMapForRes = new HashMap<Integer,HashMap<String,String>>();
-    public HashMap<Integer,HashMap<String,String>> msgTypeToKeyMapForRes = new HashMap<Integer,HashMap<String,String>>();
-    public HashMap<Integer,ArrayList<String>> msgKeysForRes = new HashMap<Integer,ArrayList<String>>();
-    public HashMap<Integer,HashMap<String,TlvFieldInfo>> msgKeyToFieldInfoMapForRes = new HashMap<Integer,HashMap<String,TlvFieldInfo>>();
+	public HashMap<Integer, HashMap<String, String>> msgKeyToTypeMapForReq = new HashMap<Integer, HashMap<String, String>>();
+	public HashMap<Integer, HashMap<String, String>> msgTypeToKeyMapForReq = new HashMap<Integer, HashMap<String, String>>();
+	public HashMap<Integer, ArrayList<String>> msgKeysForReq = new HashMap<Integer, ArrayList<String>>();
+	public HashMap<Integer, HashMap<String, FieldInfo>> msgKeyToFieldMapForReq = new HashMap<Integer, HashMap<String, FieldInfo>>();
 
-    public HashMap<String,String> codecAttributes = new HashMap<String,String>();
+	public HashMap<Integer, HashMap<String, String>> msgKeyToTypeMapForRes = new HashMap<Integer, HashMap<String, String>>();
+	public HashMap<Integer, HashMap<String, String>> msgTypeToKeyMapForRes = new HashMap<Integer, HashMap<String, String>>();
+	public HashMap<Integer, ArrayList<String>> msgKeysForRes = new HashMap<Integer, ArrayList<String>>();
+	public HashMap<Integer, HashMap<String, FieldInfo>> msgKeyToFieldMapForRes = new HashMap<Integer, HashMap<String, FieldInfo>>();
 
-    public HashMap<Integer,HashMap<String,String>> msgAttributes = new HashMap<Integer,HashMap<String,String>>();
+	// public HashMap<String, String> codecAttributes = new HashMap<String,
+	// String>();
+	// public HashMap<Integer, HashMap<String, String>> msgAttributes = new
+	// HashMap<Integer, HashMap<String, String>>();
 
-    public int serviceId;
-    public String serviceName;
-    public String serviceOrigName;
-    public boolean enableExtendTlv = true;
+	TlvCodec(String configFile) {
+		this.configFile = configFile;
+		init();
+	}
 
-    TlvCodec(String configFile) {
-    	this.configFile = configFile;
-    	init();
-    }
-    
-    void init() {
-        try {
-            initInternal();
-        }catch(Exception ex) {
-            log.error("tlv init failed, file={}, error={}",configFile,ex.getMessage());
-            throw new CodecException(ex.getMessage());
-        }
-    }
+	void init() {
+		try {
+			initInternal();
+		} catch (Exception ex) {
+			log.error("tlv init failed, file={}, error={}", configFile, ex.getMessage());
+			throw new CodecException(ex.getMessage());
+		}
+	}
 
-    public ArrayList<TlvType> allTlvTypes() {
-    	ArrayList<TlvType> list = new ArrayList<TlvType>();
-    	for(TlvType i:typeNameToCodeMap.values())
-    		list.add(i);
-        return list;
-    }
-    public ArrayList<Integer> allMsgIds() {
-    	ArrayList<Integer> list = new ArrayList<Integer>();
-    	for(Integer i: msgKeyToTypeMapForReq.keySet())
-    		list.add(i);
-        return list;
-    }
-    TlvType findTlvType(int code) {
-        return typeCodeToNameMap.get(code);
-    }
+	String getAttribute(Element t, String field) {
+		String s = t.attributeValue(field, "");
+		if (s == null)
+			s = "";
+		return s;
+	}
 
-    String getAttribute(Element t,String field1) {
-    	String s = t.attributeValue(field1,"");
-    	if( s == null ) s = "";
-    	return s;
-    }
+	String getValidatorCls(Element t) {
+		String validatorCls = getAttribute(t, "validator").toLowerCase();
+		if (!validatorCls.equals(""))
+			return validatorCls;
+		String required = getAttribute(t, "required");
+		if (TypeSafe.isTrue(required))
+			return "required";
+		else
+			return null;
+	}
 
-    boolean isEmpty(String s) {
-    	return s == null || s.length() == 0;
-    }
-    
-    TlvFieldInfo getTlvFieldInfo(Element t) {
-        // 严格区分 null 和 空串
-        String defaultValue = t.attributeValue("default");
+	FieldInfo getFieldInfo(Element t) {
+		// 严格区分 null 和 空串
+		String defaultValue = t.attributeValue("default");
 
-        String validatorCls  = getAttribute(t,"validator");
-        if( isEmpty(validatorCls) ) validatorCls = null;
-		String validatorParam  = getAttribute(t,"validatorParam");
-		String returnCode  = getAttribute(t,"returnCode");
-		String encoderCls  = getAttribute(t,"encoder");
-		if( isEmpty(encoderCls) ) encoderCls = null;
-		String encoderParam  = getAttribute(t,"encoderParam");
-        return TlvFieldInfo.getTlvFieldInfo(defaultValue,validatorCls,validatorParam,returnCode,encoderCls,encoderParam);
-    }
+		String validatorCls = getValidatorCls(t);
+		String validatorParam = getAttribute(t, "validatorParam");
+		String returnCode = getAttribute(t, "returnCode");
+		String encoderCls = getAttribute(t, "encoder");
+		if (TypeSafe.isEmpty(encoderCls))
+			encoderCls = null;
+		String encoderParam = getAttribute(t, "encoderParam");
+		return FieldInfo.getTlvFieldInfo(defaultValue, validatorCls, validatorParam, returnCode, encoderCls,
+				encoderParam);
+	}
 
-    TlvFieldInfo getTlvFieldInfo(Element t,TlvType tlvType) {
+	FieldInfo getFieldInfo(Element t, TlvType tlvType) {
 
-    	TlvFieldInfo fieldInfo = getTlvFieldInfo(t);
-        if( fieldInfo == null ) return tlvType.fieldInfo;
-        if( tlvType.fieldInfo == null ) return fieldInfo;
+		FieldInfo fieldInfo = getFieldInfo(t);
+		if (fieldInfo == null)
+			return tlvType.fieldInfo;
+		if (tlvType.fieldInfo == null)
+			return fieldInfo;
 
-        String defaultValue =  fieldInfo.defaultValue != null ? fieldInfo.defaultValue : tlvType.fieldInfo.defaultValue;
+		String defaultValue = fieldInfo.defaultValue != null ? fieldInfo.defaultValue : tlvType.fieldInfo.defaultValue;
 
-        String validatorCls = null;
-		String validatorParam  = "";
+		String validatorCls = null;
+		String validatorParam = "";
 		String returnCode = "";
 
-        if( fieldInfo.validator != null ) {
-            validatorCls  = fieldInfo.validatorCls;
-            validatorParam  = fieldInfo.validatorParam;
-            returnCode  = fieldInfo.validatorReturnCode;
-        } else if( tlvType.fieldInfo.validator != null ) {
-            validatorCls  = tlvType.fieldInfo.validatorCls;
-            validatorParam  = tlvType.fieldInfo.validatorParam;
-            returnCode  = tlvType.fieldInfo.validatorReturnCode;
-        }
-
-        String encoderCls = null;
-		String encoderParam  = "";
-
-        if( fieldInfo.encoder != null ) {
-            encoderCls  = fieldInfo.encoderCls;
-            encoderParam  = fieldInfo.encoderParam;
-        } else if( tlvType.fieldInfo.encoder != null ) {
-            encoderCls  = tlvType.fieldInfo.encoderCls;
-            encoderParam  = tlvType.fieldInfo.encoderParam;
-        }
-
-        return TlvFieldInfo.getTlvFieldInfo(defaultValue,validatorCls,validatorParam,returnCode,encoderCls,encoderParam);
-    }
-
-    
-    ObjectWithReturnCode validateAndEncodeObject(Object a,TlvFieldInfo fieldInfo,boolean needEncode) {
-        if( fieldInfo == null ) return new ObjectWithReturnCode(a,0);
-        int errorCode = 0;
-        Object b = a;
-        if( fieldInfo.validator != null) {
-            int ret = fieldInfo.validator.validate(a);
-            if( ret != 0 ) {
-                log.error("validate_value_error, value="+a+", ret="+ret);
-                if( errorCode == 0 ) errorCode = ret;
-            }
-        }
-        if( needEncode && fieldInfo.encoder != null ) {
-            b = fieldInfo.encoder.encode(a);
-        }
-        return new ObjectWithReturnCode(b,errorCode);
-    }
-
-    int validateAndEncodeMap(Map<String,Object> map,TlvType tlvType,boolean needEncode) {
-
-        int errorCode = 0;
-        int i = 0 ;
-        while( i < tlvType.structNames.length ) {
-        	TlvFieldInfo fieldInfo = tlvType.structFieldInfos[i];
-            if( fieldInfo != null ) {
-                String key = tlvType.structNames[i];
-                Object value = map.get(key);
-                if( fieldInfo.validator != null ) {
-                    int ret = fieldInfo.validator.validate(value);
-                    if( ret != 0 ) {
-                        log.error("validate_map_error, key="+key+", value="+value+", ret="+ret);
-                        if( errorCode == 0 ) errorCode = ret;
-                    }
-                }
-                if(  needEncode && fieldInfo.encoder != null ) {
-                    Object v = fieldInfo.encoder.encode(value);
-                    map.put(key,v);
-                }
-            }
-            i += 1;
-        }
-        return errorCode;
-    }
-    
-    void setStructDefault(Map<String,Object> map,TlvType tlvType) {
-
-        int i = 0; 
-        while( i < tlvType.structNames.length ) {
-            TlvFieldInfo fieldInfo = tlvType.structFieldInfos[i];
-            if( fieldInfo != null ) {
-                String key = tlvType.structNames[i];
-                Object value = map.get(key);
-                if( value == null && fieldInfo.defaultValue != null ) {
-                   map.put(key,fieldInfo.defaultValue);
-                }
-            }
-            i += 1;
-        }
-    }
-    
-    int validateAndEncode(HashMap<String,String> keyMap,HashMap<String,TlvFieldInfo> fieldInfoMap,
-    		Map<String,Object> map,boolean needEncode) {
-
-        if( fieldInfoMap == null ) return 0;
-
-        int errorCode = 0;
-        
-        for( Map.Entry<String,TlvFieldInfo> entry : fieldInfoMap.entrySet() ) {
-        	String key = entry.getKey();
-        	TlvFieldInfo fieldInfo = entry.getValue();
-            String tp = keyMap.get(key);
-            TlvType tlvType = typeNameToCodeMap.get(tp);
-            Object value = map.get(key);
-            if( value == null && fieldInfo != null && fieldInfo.defaultValue != null ) {
-                map.put(key,fieldInfo.defaultValue);
-            } else if( value != null && tlvType.cls == TlvCodec.CLS_STRUCT && value instanceof Map ) {
-            	Map<String,Object> m = (Map<String,Object>)value;
-                setStructDefault(m,tlvType);
-            } else if( value != null && tlvType.cls == TlvCodec.CLS_STRUCTARRAY  && value instanceof List ) {
-            	List<Map<String,Object>> lm = (List<Map<String,Object>>)value;
-                for( Map<String,Object> m : lm )
-                    setStructDefault(m,tlvType);
-            }
-            value = map.get(key);
-            if( value != null ) {
-                switch (tlvType.cls) {
-                    case TlvCodec.CLS_INT :
-                        map.put(key,anyToInt(value));
-                        break;
-                    case TlvCodec.CLS_STRING :
-                        map.put(key,anyToString(value));
-                        break;
-                    case TlvCodec.CLS_STRUCT :
-                        map.put(key,anyToStruct(tlvType,value));
-                        break;
-                    case TlvCodec.CLS_INTARRAY :
-                        map.put(key,anyToIntArray(value));
-                        break;
-                    case TlvCodec.CLS_STRINGARRAY :
-                        map.put(key,anyToStringArray(value));
-                        break;
-                    case TlvCodec.CLS_STRUCTARRAY :
-                        map.put(key,anyToStructArray(tlvType,value));
-                        break;
-                    default : 
-                }
-            }
-
-            value = map.get(key);
-            if( value == null ) {
-                ObjectWithReturnCode ret = validateAndEncodeObject(null,fieldInfo,needEncode);
-                if( ret.ec != 0 && errorCode == 0 )  errorCode = ret.ec;
-            } else {
-
-                if( value instanceof Integer ) {
-                	Integer i = (Integer)value; 
-                	ObjectWithReturnCode ret = validateAndEncodeObject(i,fieldInfo,needEncode);
-                    if( ret.ec != 0 && errorCode == 0 )  errorCode = ret.ec;
-                    map.put(key,ret.v);
-                } else if( value instanceof String ) {
-                	String s = (String)value; 
-                	ObjectWithReturnCode ret = validateAndEncodeObject(s,fieldInfo,needEncode);
-                    if( ret.ec != 0 && errorCode == 0 )  errorCode = ret.ec;
-                    map.put(key,ret.v);
-                } else if( value instanceof Map ) {
-                	Map<String,Object> m = (Map<String,Object>)value; 
-                	int ec = validateAndEncodeMap(m,tlvType,needEncode);
-                    if( ec != 0 && errorCode == 0 )  errorCode = ec;
-                } else if( value instanceof List ) {
-                	List<Object> l = (List<Object>)value;
-                	ObjectWithReturnCode ret = validateAndEncodeObject(l,fieldInfo,needEncode);
-                    if( ret.ec != 0 && errorCode == 0 )  errorCode = ret.ec;
-                    for(int i = 0 ; i<l.size(); ++i ) {
-                    	Object a  = l.get(i);
-                    	if( a instanceof Map ) {
-                    		Map<String,Object> m = (Map<String,Object>)a; 
-                        	int ret2 = validateAndEncodeMap(m,tlvType.itemType,needEncode);
-                            if( ret2 != 0 && errorCode == 0 )  errorCode = ret2;
-                    	} else {
-                        	ret = validateAndEncodeObject(a,tlvType.itemType.fieldInfo,needEncode);
-                            if( ret.ec != 0 && errorCode == 0 )  errorCode = ret.ec;
-                            l.set(i,ret.v);
-                    	}
-                    }
-                }
-            }
-        }
-
-        return errorCode;
-    }
-
-    boolean isTrue(String s) {
-    	return s != null && s.equals("1") || s.equals("y") || s.equals("t") || s.equals("yes") || s.equals("true");
-    }
-    
-	TlvFieldInfo[] toTlvFieldInfoArray(ArrayList<TlvFieldInfo> list) {
-		TlvFieldInfo[] b = new TlvFieldInfo[list.size()];
-		for(int i=0;i<list.size();++i) {
-			b[i] = list.get(i);
+		if (fieldInfo.validator != null) {
+			validatorCls = fieldInfo.validatorCls;
+			validatorParam = fieldInfo.validatorParam;
+			returnCode = fieldInfo.validatorReturnCode;
+		} else if (tlvType.fieldInfo.validator != null) {
+			validatorCls = tlvType.fieldInfo.validatorCls;
+			validatorParam = tlvType.fieldInfo.validatorParam;
+			returnCode = tlvType.fieldInfo.validatorReturnCode;
 		}
-		return b;
-	}	
-	
-    void initInternal() throws Exception {
+
+		String encoderCls = null;
+		String encoderParam = "";
+
+		if (fieldInfo.encoder != null) {
+			encoderCls = fieldInfo.encoderCls;
+			encoderParam = fieldInfo.encoderParam;
+		} else if (tlvType.fieldInfo.encoder != null) {
+			encoderCls = tlvType.fieldInfo.encoderCls;
+			encoderParam = tlvType.fieldInfo.encoderParam;
+		}
+
+		return FieldInfo.getTlvFieldInfo(defaultValue, validatorCls, validatorParam, returnCode, encoderCls,
+				encoderParam);
+	}
+
+	String getStructType(Element t) {
+		String s = getAttribute(t, "type");
+		if (!s.equals(""))
+			return s;
+		if (version == 1)
+			return "systemstring";
+		else
+			return "string";
+	}
+
+	int getStructLen(Element t, int fieldType) {
+
+		switch (fieldType) {
+		case CLS_INT:
+			return 4;
+		case CLS_LONG:
+			return 8;
+		case CLS_DOUBLE:
+			return 8;
+		case CLS_SYSTEMSTRING:
+			return 0;
+		case CLS_STRING:
+			if (version == 2)
+				return 0;
+			String s = getAttribute(t, "len");
+			if (s.equals(""))
+				return -1;
+			else
+				return Integer.parseInt(s);
+		default:
+			throw new CodecException("unknown type for struct, type=" + fieldType);
+		}
+
+	}
+
+	void checkStructLen(String name, ArrayList<StructField> structFields) {
+		for (int i = 0; i < structFields.size() - 1; ++i) { // don't include the
+															// last field
+			if (structFields.get(i).len == -1) {
+				throw new CodecException("struct length not valid,name=" + name + ",serviceId=" + serviceId);
+			}
+		}
+	}
+
+	void initInternal() throws Exception {
 
 		SAXReader saxReader = new SAXReader();
 		saxReader.setEncoding("UTF-8");
 		InputStream in;
-		if( configFile.startsWith(CLASSPATH_PREFIX))
+		if (configFile.startsWith(CLASSPATH_PREFIX))
 			in = TlvCodec.class.getResourceAsStream(configFile.substring(CLASSPATH_PREFIX.length()));
 		else
 			in = new FileInputStream(configFile);
 		Element cfgXml = saxReader.read(in).getRootElement();
 		in.close();
-		
-        serviceId = Integer.parseInt(cfgXml.attributeValue("id"));
-        serviceOrigName = cfgXml.attributeValue("name");
-        serviceName = cfgXml.attributeValue("name").toLowerCase();
-        String enableExtendTlvStr = cfgXml.attributeValue("enableExtendTlv","").toLowerCase();
-        if( enableExtendTlvStr != null && enableExtendTlvStr.length() > 0 )
-        	enableExtendTlv = isTrue(enableExtendTlvStr);
-        //val metadatas = cfgXml.attributes.filter(  _.key != "id").filter( _.key != "name").filter( _.key != "IsTreeStruct").filter( _.key != "enableExtendTlv")
-        //for( m <- metadatas ) {
-          //  codecAttributes.put(m.key,m.value.text)
-        //}
 
-        //val codecSql = (cfgXml \ "sql").text.trim
-        //if( codecSql != "")
-          //  codecAttributes.put("sql",codecSql)
+		serviceId = Integer.parseInt(cfgXml.attributeValue("id"));
+		serviceOrigName = cfgXml.attributeValue("name");
+		serviceName = serviceOrigName.toLowerCase();
 
-        // if( codecAttributes.size > 0 ) println( codecAttributes )
+		String versionStr = cfgXml.attributeValue("version","");
+		if (!versionStr.equals(""))
+			version = Integer.parseInt(versionStr);
+		if (version != 1 && version != 2) {
+			throw new CodecException("version not valid, serviceOrigName=" + serviceOrigName);
+		}
 
-        List<Element> types = cfgXml.selectNodes("/service/type");
-        
+		// ignore service metas used in scalabpe
+		// ignore sql node used in scalabpe
+
+		List<Element> types = cfgXml.selectNodes("/service/type");
+
 		for (Element t : types) {
-            String name = t.attributeValue("name").toLowerCase();
-            int cls = TlvCodec.clsToInt( t.attributeValue("class"),t.attributeValue("isbytes","") );
-            if( cls == TlvCodec.CLS_UNKNOWN || cls == TlvCodec.CLS_SYSTEMSTRING)
-                throw new CodecException("class not valid, class="+ t.attributeValue("class"));
-            int code =  cls != TlvCodec.CLS_ARRAY ?  Integer.parseInt(t.attributeValue("code")) : 0;
+			String name = t.attributeValue("name").toLowerCase();
+			int cls = clsToInt(t.attributeValue("class"), t.attributeValue("isbytes", ""));
+			if (cls == CLS_UNKNOWN || cls == CLS_SYSTEMSTRING)
+				throw new CodecException("class not valid, class=" + t.attributeValue("class"));
+			int code = cls != CLS_ARRAY ? Integer.parseInt(t.attributeValue("code")) : 0;
 
-            /*
-            val metadatas = t.attributes.filter(  _.key != "code").filter( _.key != "name").filter( _.key != "class").filter( _.key != "isbytes")
-            for( m <- metadatas ) {
-                codecAttributes.put("type-"+name+"-"+m.key,m.value.text)
-            }
-            */
-            TlvFieldInfo fieldInfo = getTlvFieldInfo(t);
+			// ignore type metas used in scalabpe
 
-            switch(cls) {
+			FieldInfo fieldInfo = getFieldInfo(t);
 
-                case TlvCodec.CLS_ARRAY:
-                {	
-                    String itemType = t.attributeValue("itemType","").toLowerCase();
-                    TlvType itemConfig = typeNameToCodeMap.get(itemType);
-                    if(itemConfig == null ) itemConfig = TlvType.UNKNOWN;
-                    if( itemConfig == TlvType.UNKNOWN ) {
-                        throw new CodecException("itemType not valid,name="+name+",itemType="+itemType);
-                    }
-                    int arraycls = TlvCodec.clsToArrayType(itemConfig.cls);
-                    TlvType c = new TlvType(name,arraycls,itemConfig.code,fieldInfo,itemConfig);
-                    if( arraycls == TlvCodec.CLS_STRUCTARRAY) {
-                        c.structNames = itemConfig.structNames;
-                        c.structTypes = itemConfig.structTypes;
-                        c.structLens = itemConfig.structLens;
-                        c.structFieldInfos = itemConfig.structFieldInfos;
-                    }
+			switch (cls) {
 
-                    if( typeCodeToNameMap.get(c.code) != null ) {
-                    	TlvType tlvType = typeCodeToNameMap.get(c.code);
-                        if( TlvCodec.isArray(tlvType.cls) )
-                            throw new CodecException("multiple array definitions for one code!!! code="+c.code+",serviceId="+serviceId);
-                    }
-                    typeCodeToNameMap.put(c.code,c); // overwrite itemtype's map
+			case CLS_ARRAY: {
+				String itemTypeName = t.attributeValue("itemType", "").toLowerCase();
+				TlvType itemTlvType = typeNameToCodeMap.get(itemTypeName);
+				if (itemTlvType == null)
+					itemTlvType = UNKNOWN;
+				if (itemTlvType == UNKNOWN) {
+					throw new CodecException("itemType not valid,name=" + name + ",itemType=" + itemTypeName);
+				}
+				int arraycls = clsToArrayType(itemTlvType.cls);
+				if (arraycls == CLS_UNKNOWN) {
+					throw new CodecException("itemType not valid,name=" + name + ",itemType=" + itemTypeName);
+				}
+				TlvType tlvType = new TlvType(name, arraycls, itemTlvType.code, fieldInfo, itemTlvType, itemTlvType.structDef,
+						itemTlvType.objectDef);
 
-                    if( typeNameToCodeMap.get(c.name) != null ) {
-                        throw new CodecException("name duplicated, name="+c.name+",serviceId="+serviceId);
-                    }
+				if (typeCodeToNameMap.get(tlvType.code) != null) {
+					TlvType foundTlvType = typeCodeToNameMap.get(tlvType.code);
+					if (isArray(foundTlvType.cls))
+						throw new CodecException("multiple array definitions for one code!!! code=" + tlvType.code
+								+ ",serviceId=" + serviceId);
+				}
+				typeCodeToNameMap.put(tlvType.code, tlvType); // overwrite itemtype's map
 
-                    typeNameToCodeMap.put(c.name,c);
+				if (typeNameToCodeMap.get(tlvType.name) != null) {
+					throw new CodecException("name duplicated, name=" + tlvType.name + ",serviceId=" + serviceId);
+				}
 
-                    //val classex  = codecAttributes.getOrElse("classex-"+itemType,null);
-                    //if( classex != null ) {
-                      //  codecAttributes.put("classex-"+name,classex);
-                    //}
-                    break;
-                }
+				typeNameToCodeMap.put(tlvType.name, tlvType);
 
-                case TlvCodec.CLS_STRUCT:
+				// ignore classex used in scalabpe
+				break;
+			}
 
-                {
-                	ArrayList<String> structNames = new ArrayList<String>();
-                	ArrayList<Integer> structTypes = new ArrayList<Integer>();
-                	ArrayList<Integer> structLens = new ArrayList<Integer>();
-                	ArrayList<TlvFieldInfo> structFieldInfos = new ArrayList<TlvFieldInfo>();
+			case CLS_STRUCT: {
+				ArrayList<StructField> structFields = new ArrayList<StructField>();
 
-                	List<Element> fields = t.selectNodes("field");
-            		for (Element f : fields) {
+				List<Element> fields = t.selectNodes("field");
+				for (Element f : fields) {
 
-                        String fieldName = f.attributeValue("name");
-                        int fieldType = TlvCodec.clsToInt( f.attributeValue("type") );
+					String fieldName = f.attributeValue("name");
+					String fieldTypeName = getStructType(f);
+					int fieldType = clsToInt(fieldTypeName);
 
-                        if( fieldType != TlvCodec.CLS_INT && fieldType != TlvCodec.CLS_STRING && fieldType != TlvCodec.CLS_SYSTEMSTRING) {
-                            throw new CodecException("not supported field type,name="+name+",type="+fieldType);
-                        }
+					if (!checkStructFieldCls(version, fieldType)) {
+						throw new CodecException("not supported field type,name=" + name + ",type=" + fieldType);
+					}
 
-                        int fieldLen = -1;
-                        String lenstr = f.attributeValue("len","");
-                        fieldLen =  lenstr.equals("") ? -1 : Integer.parseInt(lenstr);
+					int fieldLen = getStructLen(f, fieldType);
+					FieldInfo fieldInfo2 = getFieldInfo(f);
 
-                        if( fieldType == TlvCodec.CLS_INT ) fieldLen = 4;
-                        if( fieldType == TlvCodec.CLS_SYSTEMSTRING ) fieldLen = 4; // special length
+					StructField sf = new StructField(fieldName, fieldType, fieldLen, fieldInfo2);
+					structFields.add(sf);
 
-                        TlvFieldInfo fieldInfo2 = getTlvFieldInfo(f);
+					// ignore classex used in scalabpe
+					// ignore item metas used in scalabpe
+				}
 
-                        structNames.add(fieldName);
-                        structTypes.add(fieldType);
-                        structLens.add(fieldLen);
-                        structFieldInfos.add(fieldInfo2);
+				checkStructLen(name, structFields);
 
-                        //val classex = (f \ "@classex").toString;
-                        //if( classex != "" ) {
-                          //  codecAttributes.put("classex-"+name+"-"+fieldName,classex);
-                           // codecAttributes.put("classex-"+name,"some");
-                        //}
-                    }
+				StructDef structDef = new StructDef();
+				structDef.fields.addAll(structFields);
+				for (StructField f : structFields)
+					structDef.keys.add(f.name);
+				TlvType tlvType = new TlvType(name, cls, code, fieldInfo, UNKNOWN, structDef, EMPTY_OBJECTDEF);
 
-                    //val itemmetadatas = f.attributes.filter(  _.key != "name").filter( _.key != "type").filter( _.key != "len")
-                    //for( m <- itemmetadatas ) {
-                        //codecAttributes.put("type-"+name+"-"+fieldName+"-"+m.key,m.value.text)
-                    //}
+				if (typeCodeToNameMap.get(tlvType.code) != null) {
+					throw new CodecException("code duplicated, code=" + tlvType.code + ",serviceId=" + serviceId);
+				}
 
-                    boolean lenOk = true;
-                    for( int i = 1 ; i < structLens.size() ; ++i ) { // don't include the last field
-                        if( structLens.get(i-1) == -1 ) {
-                            lenOk = false;
-                        }
-                    }
+				if (typeNameToCodeMap.get(tlvType.name) != null) {
+					throw new CodecException("name duplicated, name=" + tlvType.name + ",serviceId=" + serviceId);
+				}
 
-                    if( !lenOk ) {
-                        throw new CodecException("struct length not valid,name="+name+",serviceId="+serviceId);
-                    }
+				typeCodeToNameMap.put(tlvType.code, tlvType);
+				typeNameToCodeMap.put(tlvType.name, tlvType);
+				break;
+			}
 
-                    TlvType c = new TlvType(name,cls,code,fieldInfo, 
-                        ArrayHelper.toStringArray(structNames) ,ArrayHelper.toArray(structTypes),ArrayHelper.toArray(structLens),toTlvFieldInfoArray(structFieldInfos)
-                        );
+			case CLS_OBJECT: {
 
-                    if( typeCodeToNameMap.get(c.code) != null ) {
-                        throw new CodecException("code duplicated, code="+c.code+",serviceId="+serviceId);
-                    }
+				if (version != 2) {
+					throw new CodecException("object not supported in version 1");
+				}
 
-                    if( typeNameToCodeMap.get(c.name) != null ) {
-                        throw new CodecException("name duplicated, name="+c.name+",serviceId="+serviceId);
-                    }
+				HashMap<String, String> t_keyToTypeMap = new HashMap<String, String>();
+				HashMap<String, String> t_typeToKeyMap = new HashMap<String, String>();
+				ArrayList<TlvType> t_tlvTypes = new ArrayList<TlvType>();
+				HashMap<String, FieldInfo> t_keyToFieldMap = new HashMap<String, FieldInfo>();
 
-                    typeCodeToNameMap.put(c.code,c);
-                    typeNameToCodeMap.put(c.name,c);
-                    break;
-                }
-                
-                default:
-                	
-                {
-                	TlvType c = new TlvType(name,cls,code,fieldInfo);
+				List<Element> fields = t.selectNodes("field");
+				for (Element f : fields) {
 
-                    if( typeCodeToNameMap.get(c.code) != null ) {
-                        throw new CodecException("code duplicated, code="+c.code+",serviceId="+serviceId);
-                    }
+					String key = f.attributeValue("name");
+					String typeName0 = f.attributeValue("type","").toLowerCase();
+					String typeName = typeName0.equals("") ? (key + "_type").toLowerCase() : typeName0;
 
-                    if( typeNameToCodeMap.get(c.name) != null ) {
-                        throw new CodecException("name duplicated, name="+c.name+",serviceId="+serviceId);
-                    }
+					TlvType tlvType = typeNameToCodeMap.get(typeName);
+					if (tlvType == null) {
+						throw new CodecException("typeName %s not found".format(typeName));
+					}
 
-                    typeCodeToNameMap.put(c.code,c);
-                    typeNameToCodeMap.put(c.name,c);
+					if (t_keyToTypeMap.get(key) != null) {
+						throw new CodecException("key duplicated, key=" + key + ",serviceId=" + serviceId);
+					}
+					if (t_typeToKeyMap.get(typeName) != null) {
+						throw new CodecException("type duplicated, type=" + typeName + ",serviceId=" + serviceId);
+					}
 
-                    //val classex  = (t \ "@classex").toString;
-                    //if( classex != "" ) {
-                        //codecAttributes.put("classex-"+name,classex);
-                    //}
-                }
-            }
+					t_keyToTypeMap.put(key, typeName);
+					t_typeToKeyMap.put(typeName, key);
+					t_tlvTypes.add(tlvType);
+					FieldInfo fieldInfo2 = getFieldInfo(f, tlvType);
+					if (fieldInfo2 != null) {
+						t_keyToFieldMap.put(key, fieldInfo2);
+					}
 
-        }
+					// ignore classex used in scalabpe
+					// ignore item metas used in scalabpe
+				}
+
+				ObjectDef objectDef = new ObjectDef();
+				objectDef.fields.addAll(t_tlvTypes);
+				objectDef.keyToTypeMap.putAll(t_keyToTypeMap);
+				objectDef.typeToKeyMap.putAll(t_typeToKeyMap);
+				objectDef.keyToFieldMap.putAll(t_keyToFieldMap);
+
+				TlvType tlvType = new TlvType(name, cls, code, fieldInfo, UNKNOWN, EMPTY_STRUCTDEF, objectDef);
+
+				if (typeCodeToNameMap.get(tlvType.code) != null) {
+					throw new CodecException("code duplicated, code=" + tlvType.code + ",serviceId=" + serviceId);
+				}
+
+				if (typeNameToCodeMap.get(tlvType.name) != null) {
+					throw new CodecException("name duplicated, name=" + tlvType.name + ",serviceId=" + serviceId);
+				}
+
+				typeCodeToNameMap.put(tlvType.code, tlvType);
+				typeNameToCodeMap.put(tlvType.name, tlvType);
+				break;
+			}
+			default: {
+
+				if (!checkTypeCls(version, cls)) {
+					throw new CodecException("not supported type,name=" + name + ",type=" + clsToName(cls));
+				}
+
+				TlvType c = new TlvType(name, cls, code, fieldInfo);
+
+				if (typeCodeToNameMap.get(c.code) != null) {
+					throw new CodecException("code duplicated, code=" + c.code + ",serviceId=" + serviceId);
+				}
+
+				if (typeNameToCodeMap.get(c.name) != null) {
+					throw new CodecException("name duplicated, name=" + c.name + ",serviceId=" + serviceId);
+				}
+
+				typeCodeToNameMap.put(c.code, c);
+				typeNameToCodeMap.put(c.name, c);
+
+				// ignore classex used in scalabpe
+				break;
+			}
+			}
+			String arrayTypeName = t.attributeValue("array","").toLowerCase();
+			if (!arrayTypeName.equals("") && cls != CLS_ARRAY) {
+
+				TlvType itemTlvType = typeNameToCodeMap.get(name);
+				if (itemTlvType == null)
+					itemTlvType = UNKNOWN;
+				int arraycls = clsToArrayType(itemTlvType.cls);
+				if (arraycls == CLS_UNKNOWN) {
+                    throw new CodecException("not allowed class for array");
+				}
+				TlvType tlvType = new TlvType(arrayTypeName, arraycls, itemTlvType.code, null, itemTlvType,
+						itemTlvType.structDef, itemTlvType.objectDef);
+
+				if (typeCodeToNameMap.get(tlvType.code) != null) {
+					TlvType foundTlvType = typeCodeToNameMap.get(tlvType.code);
+					if (isArray(foundTlvType.cls))
+						throw new CodecException("multiple array definitions for one code!!! code=" + tlvType.code
+								+ ",serviceId=" + serviceId);
+				}
+				typeCodeToNameMap.put(tlvType.code, tlvType); // overwrite
+																// itemtype's
+																// map
+
+				if (typeNameToCodeMap.get(tlvType.name) != null) {
+					throw new CodecException("name duplicated, name=" + tlvType.name + ",serviceId=" + serviceId);
+				}
+				typeNameToCodeMap.put(tlvType.name, tlvType);
+			}
+		}
 
 		List<Element> messages = cfgXml.selectNodes("/service/message");
 		for (Element t : messages) {
 
-			HashMap<String,String> attributes = new HashMap<String,String>();
+			// HashMap<String, String> attributes = new HashMap<String,
+			// String>();
 
-            int msgId = Integer.parseInt( t.attributeValue("id") );
-            String msgNameOrig = t.attributeValue("name") ;
-            String msgName = t.attributeValue("name").toLowerCase();
+			int msgId = Integer.parseInt(t.attributeValue("id"));
+			String msgNameOrig = t.attributeValue("name");
+			String msgName = msgNameOrig.toLowerCase();
 
-            if( msgIdToNameMap.get(msgId) != null ) {
-                throw new CodecException("msgId duplicated, msgId="+msgId+",serviceId="+serviceId);
-            }
+			// ignore msgIds used in scalabpe
 
-            if( msgNameToIdMap.get(msgName) != null ) {
-                throw new CodecException("msgName duplicated, msgName="+msgName+",serviceId="+serviceId);
-            }
+			if (msgIdToNameMap.get(msgId) != null) {
+				throw new CodecException("msgId duplicated, msgId=" + msgId + ",serviceId=" + serviceId);
+			}
 
-            msgIdToNameMap.put(msgId,msgName);
-            msgNameToIdMap.put(msgName,msgId);
-            msgIdToOrigNameMap.put(msgId,msgNameOrig);
+			if (msgNameToIdMap.get(msgName) != null) {
+				throw new CodecException("msgName duplicated, msgName=" + msgName + ",serviceId=" + serviceId);
+			}
 
-            //val metadatas = t.attributes.filter(  _.key != "id").filter( _.key != "name")
-            //for( m <- metadatas ) {
-              //  attributes.put(m.key,m.value.text)
-            //}
+			msgIdToNameMap.put(msgId, msgName);
+			msgNameToIdMap.put(msgName, msgId);
+			msgIdToOrigNameMap.put(msgId, msgNameOrig);
 
-            // dbbroker
-            //val sql = (t \ "sql" ).text.trim
-            //if(sql != "")
-               // attributes.put("sql",sql)
+			// ignore message metas used in scalabpe
+			// ignore sql node used in scalabpe
 
-            List<Element> fieldsreq = t.selectNodes("requestParameter/field");
-            
-            HashMap<String,String> m1req = new HashMap<String,String>();
-            HashMap<String,String> m2req = new HashMap<String,String>();
-            ArrayList<String> m3req = new ArrayList<String>();
+			List<Element> fieldsreq = t.selectNodes("requestParameter/field");
 
-            HashMap<String,TlvFieldInfo> m4req = new HashMap<String,TlvFieldInfo>();
+			HashMap<String, String> t_keyToTypeMapForReq = new HashMap<String, String>();
+			HashMap<String, String> t_typeToKeyMapForReq = new HashMap<String, String>();
+			ArrayList<String> t_keysForReq = new ArrayList<String>();
+			HashMap<String, FieldInfo> t_keyToFieldMapForReq = new HashMap<String, FieldInfo>();
 
-            for( Element f : fieldsreq ) {
-                String key = f.attributeValue("name");
-                String typeName = f.attributeValue("type","").toLowerCase();
-                if( typeName.equals("") ) typeName = (key+"_type").toLowerCase();
+			for (Element f : fieldsreq) {
+				String key = f.attributeValue("name");
+				String typeName = f.attributeValue("type", "").toLowerCase();
+				if (typeName.equals(""))
+					typeName = (key + "_type").toLowerCase();
 
-                TlvType tlvType = typeNameToCodeMap.get(typeName);
-                if( tlvType == null ) {
-                    throw new CodecException("typeName "+typeName+" not found");
-                }
+				TlvType tlvType = typeNameToCodeMap.get(typeName);
+				if (tlvType == null) {
+					throw new CodecException("typeName " + typeName + " not found");
+				}
 
-                if( m1req.get(key) != null ) {
-                    throw new CodecException("req key duplicated, key="+key+",serviceId="+serviceId+",msgId="+msgId);
-                }
-                if( m2req.get(typeName) != null ) {
-                    throw new CodecException("req type duplicated, type="+typeName+",serviceId="+serviceId+",msgId="+msgId);
-                }
+				if (t_keyToTypeMapForReq.get(key) != null) {
+					throw new CodecException(
+							"req key duplicated, key=" + key + ",serviceId=" + serviceId + ",msgId=" + msgId);
+				}
+				if (t_typeToKeyMapForReq.get(typeName) != null) {
+					throw new CodecException(
+							"req type duplicated, type=" + typeName + ",serviceId=" + serviceId + ",msgId=" + msgId);
+				}
 
-                m1req.put(key,typeName);
-                m2req.put(typeName,key);
-                m3req.add(key);
-                TlvFieldInfo fieldInfo = getTlvFieldInfo(f,tlvType);
-                if( fieldInfo != null ) {
-                    m4req.put(key,fieldInfo);
-                } else if( tlvType.cls == TlvCodec.CLS_STRUCT ) {
-                    if( tlvType.hasFieldInfo() ) 
-                        m4req.put(key,null);
-                } else if( tlvType.cls == TlvCodec.CLS_STRINGARRAY || tlvType.cls == TlvCodec.CLS_INTARRAY ) {
-                    if( tlvType.itemType.fieldInfo != null ) 
-                        m4req.put(key,null);
-                } else if( tlvType.cls == TlvCodec.CLS_STRUCTARRAY ) {
-                    if( tlvType.itemType.hasFieldInfo() ) 
-                        m4req.put(key,null);
-                }
+				t_keyToTypeMapForReq.put(key, typeName);
+				t_typeToKeyMapForReq.put(typeName, key);
+				t_keysForReq.add(key);
+				FieldInfo fieldInfo = getFieldInfo(f, tlvType);
+				if (fieldInfo != null) {
+					t_keyToFieldMapForReq.put(key, fieldInfo);
+				} else if (tlvType.hasSubFieldInfo()) {
+					t_keyToFieldMapForReq.put(key, null);
+				}
 
-                //val metadatas = f.attributes.filter(  _.key != "name").filter( _.key != "type").filter( _.key != "required")
-                //for( m <- metadatas ) {
-                  //  attributes.put("req-"+key+"-"+m.key,m.value.text)
-                //}
-            }
-            msgKeyToTypeMapForReq.put(msgId,m1req);
-            msgTypeToKeyMapForReq.put(msgId,m2req);
-            msgKeysForReq.put(msgId,m3req);
-            if( m4req.size() > 0 )
-                msgKeyToFieldInfoMapForReq.put(msgId,m4req);
+				// ignore field metas used in scalabpe
+			}
+			msgKeyToTypeMapForReq.put(msgId, t_keyToTypeMapForReq);
+			msgTypeToKeyMapForReq.put(msgId, t_typeToKeyMapForReq);
+			msgKeysForReq.put(msgId, t_keysForReq);
+			if (t_keyToFieldMapForReq.size() > 0)
+				msgKeyToFieldMapForReq.put(msgId, t_keyToFieldMapForReq);
 
-            List<Element> fieldsres = t.selectNodes("responseParameter/field");
-            
-            HashMap<String,String> m1res = new HashMap<String,String>();
-            HashMap<String,String> m2res = new HashMap<String,String>();
-            ArrayList<String> m3res = new ArrayList<String>();
-            HashMap<String,TlvFieldInfo> m4res = new HashMap<String,TlvFieldInfo>();
-            for(Element f: fieldsres ) {
-                String key = f.attributeValue("name");
-                String typeName = f.attributeValue("type","").toLowerCase();
-                if( typeName.equals("") ) typeName = (key+"_type").toLowerCase();
+			List<Element> fieldsres = t.selectNodes("responseParameter/field");
 
-                TlvType tlvType = typeNameToCodeMap.get(typeName);
-                if( tlvType == null ) {
-                    throw new CodecException("typeName "+typeName+" not found");
-                }
+			HashMap<String, String> t_keyToTypeMapForRes = new HashMap<String, String>();
+			HashMap<String, String> t_typeToKeyMapForRes = new HashMap<String, String>();
+			ArrayList<String> t_keysForRes = new ArrayList<String>();
+			HashMap<String, FieldInfo> t_keyToFieldMapForRes = new HashMap<String, FieldInfo>();
 
-                if( m1res.get(key) != null ) {
-                    throw new CodecException("res key duplicated, key="+key+",serviceId="+serviceId+",msgId="+msgId);
-                }
-                if( m2res.get(typeName) != null ) {
-                    throw new CodecException("res type duplicated, type="+typeName+",serviceId="+serviceId+",msgId="+msgId);
-                }
+			for (Element f : fieldsres) {
+				String key = f.attributeValue("name");
+				String typeName = f.attributeValue("type", "").toLowerCase();
+				if (typeName.equals(""))
+					typeName = (key + "_type").toLowerCase();
 
-                m1res.put(key,typeName);
-                m2res.put(typeName,key);
-                m3res.add(key);
-                TlvFieldInfo fieldInfo = getTlvFieldInfo(f,tlvType);
-                if( fieldInfo != null ) {
-                    m4res.put(key,fieldInfo);
-                } else if( tlvType.cls == TlvCodec.CLS_STRUCT ) {
-                    if( tlvType.hasFieldInfo() ) 
-                        m4res.put(key,null);
-                } else if( tlvType.cls == TlvCodec.CLS_STRINGARRAY || tlvType.cls == TlvCodec.CLS_INTARRAY ) {
-                    if( tlvType.itemType.fieldInfo != null ) 
-                        m4res.put(key,null);
-                } else if( tlvType.cls == TlvCodec.CLS_STRUCTARRAY ) {
-                    if( tlvType.itemType.hasFieldInfo() ) 
-                        m4res.put(key,null);
-                }
+				TlvType tlvType = typeNameToCodeMap.get(typeName);
+				if (tlvType == null) {
+					throw new CodecException("typeName " + typeName + " not found");
+				}
 
-                //val metadatas = f.attributes.filter(  _.key != "name").filter( _.key != "type").filter( _.key != "required")
-                //for( m <- metadatas ) {
-                  //  attributes.put("res-"+key+"-"+m.key,m.value.text)
-                //}
-            }
+				if (t_keyToTypeMapForRes.get(key) != null) {
+					throw new CodecException(
+							"res key duplicated, key=" + key + ",serviceId=" + serviceId + ",msgId=" + msgId);
+				}
+				if (t_typeToKeyMapForRes.get(typeName) != null) {
+					throw new CodecException(
+							"res type duplicated, type=" + typeName + ",serviceId=" + serviceId + ",msgId=" + msgId);
+				}
 
-            msgKeyToTypeMapForRes.put(msgId,m1res);
-            msgTypeToKeyMapForRes.put(msgId,m2res);
-            msgKeysForRes.put(msgId,m3res);
-            if( m4res.size() > 0 )
-                msgKeyToFieldInfoMapForRes.put(msgId,m4res);
+				t_keyToTypeMapForRes.put(key, typeName);
+				t_typeToKeyMapForRes.put(typeName, key);
+				t_keysForRes.add(key);
+				FieldInfo fieldInfo = getFieldInfo(f, tlvType);
+				if (fieldInfo != null) {
+					t_keyToFieldMapForRes.put(key, fieldInfo);
+				} else if (tlvType.hasSubFieldInfo()) {
+					t_keyToFieldMapForRes.put(key, null);
+				}
 
-            msgAttributes.put(msgId,attributes);
+				// ignore field metas used in scalabpe
+			}
 
-            // if( attributes.size > 0 ) println( attributes )
-        }
+			msgKeyToTypeMapForRes.put(msgId, t_keyToTypeMapForRes);
+			msgTypeToKeyMapForRes.put(msgId, t_typeToKeyMapForRes);
+			msgKeysForRes.put(msgId, t_keysForRes);
+			if (t_keyToFieldMapForRes.size() > 0)
+				msgKeyToFieldMapForRes.put(msgId, t_keyToFieldMapForRes);
+		}
 
-    }
-    
-    public MapWithReturnCode decodeRequest(int msgId, ByteBuffer buff,int encoding) {
-        try {
-        	HashMap<String,String> keyMap = msgTypeToKeyMapForReq.get(msgId);
-            if( keyMap == null ) keyMap = TlvCodec.EMPTY_STRINGMAP;
-            HashMap<String,Object> m = decode(keyMap,buff,encoding);
-            HashMap<String,TlvFieldInfo> fieldInfoMap = msgKeyToFieldInfoMapForReq.get(msgId);
-            HashMap<String,String> keyMap2 = msgKeyToTypeMapForReq.get(msgId);
-            if( keyMap2 == null ) keyMap2 = TlvCodec.EMPTY_STRINGMAP;
-            int ec = validateAndEncode(keyMap2,fieldInfoMap,m,true);
-            return new MapWithReturnCode(m,ec);
-        } catch(Exception e) {
-                log.error("decode request error",e);
-                return new MapWithReturnCode(new HashMap<String,Object>(),ErrorCodes.TLV_ERROR);
-        }
-    } 
+	}
 
-    public MapWithReturnCode decodeResponse(int msgId, ByteBuffer buff,int encoding) {
-        try {
-        	HashMap<String,String> keyMap = msgTypeToKeyMapForRes.get(msgId);
-        	if( keyMap == null ) keyMap = TlvCodec.EMPTY_STRINGMAP;
-        	HashMap<String,Object> m = decode(keyMap,buff,encoding);
-        	HashMap<String,TlvFieldInfo> fieldInfoMap = msgKeyToFieldInfoMapForRes.get(msgId);
-        	HashMap<String,String> keyMap2 = msgKeyToTypeMapForRes.get(msgId);
-        	if( keyMap2 == null ) keyMap2 = TlvCodec.EMPTY_STRINGMAP;
-            int ec = validateAndEncode(keyMap2,fieldInfoMap,m,false);
-            return new MapWithReturnCode(m,ec);
-        } catch(Exception e) {
-                log.error("decode response error",e);
-                return new MapWithReturnCode(new HashMap<String,Object>(),ErrorCodes.TLV_ERROR);
-        }
-    }
+	public ArrayList<TlvType> allTlvTypes() {
+		ArrayList<TlvType> list = new ArrayList<TlvType>();
+		for (TlvType i : typeNameToCodeMap.values())
+			list.add(i);
+		return list;
+	}
 
-    HashMap<String,Object> decode(HashMap<String,String> keyMap, ByteBuffer buff,int encoding) throws Exception {
+	public ArrayList<Integer> allMsgIds() {
+		ArrayList<Integer> list = new ArrayList<Integer>();
+		for (Integer i : msgKeyToTypeMapForReq.keySet())
+			list.add(i);
+		return list;
+	}
 
-        buff.position(0);
-        int limit = buff.remaining();
+	public TlvType findTlvType(int code) {
+		return typeCodeToNameMap.get(code);
+	}
 
-        HashMap<String,Object> map = new HashMap<String,Object>();
-        boolean breakFlag = false;
+	public String msgIdToName(int msgId) {
+		return msgIdToNameMap.get(msgId);
+	}
 
-        while (buff.position() + 4 <= limit && !breakFlag ) {
+	public int msgNameToId(String msgName) {
+		Object o = msgNameToIdMap.get(msgName);
+		if (o == null)
+			return 0;
+		return (Integer) o;
+	}
 
-            int code = buff.getShort();
-            int len= buff.getShort() & 0xffff;
-            int tlvheadlen = 4;
-            if( code > 0 && len == 0 ) { len = buff.getInt(); tlvheadlen = 8; }
+	public MapWithReturnCode decodeRequest(int msgId, ChannelBuffer buff, int encoding) {
+		try {
+			HashMap<String, String> typeMap = msgTypeToKeyMapForReq.get(msgId);
+			if (typeMap == null)
+				typeMap = EMPTY_STRINGMAP;
+			HashMap<String, String> keyMap = msgKeyToTypeMapForReq.get(msgId);
+			if (keyMap == null)
+				keyMap = EMPTY_STRINGMAP;
+			HashMap<String, FieldInfo> fieldMap = msgKeyToFieldMapForReq.get(msgId);
+			return decode(typeMap, keyMap, fieldMap, 
+                    buff, 0, buff.writerIndex(), encoding, true);
+		} catch (Exception e) {
+			log.error("decode request error", e);
+			return new MapWithReturnCode(new HashMap<String, Object>(), ErrorCodes.TLV_ERROR);
+		}
+	}
 
-            if( len < tlvheadlen ) {
-                if( code == 0 && len == 0 ) { // 00 03 00 04 00 00 00 00, the last 4 bytes are padding bytes by session server
+	public MapWithReturnCode decodeResponse(int msgId, ChannelBuffer buff, int encoding) {
+		try {
+			HashMap<String, String> typeMap = msgTypeToKeyMapForRes.get(msgId);
+			if (typeMap == null)
+				typeMap = EMPTY_STRINGMAP;
+			HashMap<String, String> keyMap = msgKeyToTypeMapForRes.get(msgId);
+			if (keyMap == null)
+				keyMap = EMPTY_STRINGMAP;
+			HashMap<String, FieldInfo> fieldMap = msgKeyToFieldMapForRes.get(msgId);
+			return decode(typeMap, keyMap, fieldMap, 
+                    buff, 0, buff.writerIndex(), encoding, false);
+		} catch (Exception e) {
+			log.error("decode request error", e);
+			return new MapWithReturnCode(new HashMap<String, Object>(), ErrorCodes.TLV_ERROR);
+		}
+	}
 
-                } else {
-                    log.error("length_error,code="+code+",len="+len+",limit="+limit+",map="+map.toString());
-                    if( log.isDebugEnabled() ) {
-                        log.debug("body bytes="+toHexString(buff));
+	MapWithReturnCode decode(HashMap<String, String> typeMap, HashMap<String, String> keyMap,
+			HashMap<String, FieldInfo> fieldMap, ChannelBuffer buff, int start, int limit, int encoding,
+			boolean needEncode) throws Exception {
+
+		buff.readerIndex(start);
+
+		HashMap<String, Object> map = new HashMap<String, Object>();
+		boolean brk = false;
+		int errorCode = 0;
+
+		while (buff.readerIndex() + 4 <= limit && !brk) {
+
+			int code = buff.readShort();
+			int len = buff.readShort() & 0xffff;
+			int tlvheadlen = 4;
+			if (code > 0 && len == 0) {
+				len = buff.readInt();
+				tlvheadlen = 8;
+			}
+
+			if (len < tlvheadlen) {
+				if (code == 0 && len == 0) { // 00 03 00 04 00 00 00 00, the
+												// last 4 bytes are padding
+												// bytes by session server
+
+				} else {
+					log.error(
+							"length_error,code=" + code + ",len=" + len + ",limit=" + limit + ",map=" + map.toString());
+					if (log.isDebugEnabled()) {
+						log.debug("body bytes=" + hexDump(buff));
+					}
+				}
+				brk = true;
+			}
+			if (buff.readerIndex() + len - tlvheadlen > limit) {
+				log.error("length_error,code=" + code + ",len=" + len + ",limit=" + limit + ",map=" + map.toString());
+				if (log.isDebugEnabled()) {
+					log.debug("body bytes=" + hexDump(buff));
+				}
+				brk = true;
+			}
+
+			if (!brk) {
+
+				TlvType tlvType = typeCodeToNameMap.get(code);
+				if (tlvType == null)
+					tlvType = UNKNOWN;
+
+				String key = typeMap.get(tlvType.name);
+
+				// if is array, check to see if is itemType
+
+				if (key == null && isArray(tlvType.cls)) {
+					key = typeMap.get(tlvType.itemType.name);
+					if (key != null) {
+						tlvType = tlvType.itemType;
+					}
+				}
+
+				if (tlvType == UNKNOWN || key == null) {
+
+					skipRead(buff, aligned(len) - tlvheadlen);
+
+				} else {
+
+					switch (tlvType.cls) {
+
+					case CLS_INT: {
+						if (len != 8)
+							throw new CodecException("int_length_error,len=" + len);
+						int value = buff.readInt();
+						map.put(key, value);
+						break;
+					}
+
+					case CLS_LONG: {
+						if (len != 12)
+							throw new CodecException("long_length_error,len=" + len);
+						long value = buff.readLong();
+						map.put(key, value);
+						break;
+					}
+
+					case CLS_DOUBLE: {
+						if (len != 12)
+							throw new CodecException("double_length_error,len=" + len);
+						double value = buff.readDouble();
+						map.put(key, value);
+						break;
+					}
+
+					case CLS_STRING: {
+						String value = readString(buff, len - tlvheadlen, AvenueCodec.toEncoding(encoding));
+						map.put(key, value);
+						break;
+					}
+
+					case CLS_BYTES: {
+						int p = buff.readerIndex();
+						byte[] value = new byte[len - tlvheadlen];
+						buff.readBytes(value);
+						map.put(key, value);
+
+						int newposition = Math.min(p + aligned(len) - tlvheadlen, buff.writerIndex());
+						buff.readerIndex(newposition);
+						break;
+					}
+
+					case CLS_STRUCT: {
+						HashMap<String, Object> value = decodeStruct(buff, len - tlvheadlen, tlvType, encoding);
+						map.put(key, value);
+						break;
+					}
+
+					case CLS_OBJECT: {
+						int p = buff.readerIndex();
+						MapWithReturnCode mrc = decode(tlvType.objectDef.typeToKeyMap, tlvType.objectDef.keyToTypeMap,
+								tlvType.objectDef.keyToFieldMap, buff, p, p + len - tlvheadlen, encoding, needEncode);
+						map.put(key, mrc.body);
+						if (mrc.ec != 0 && errorCode == 0)
+							errorCode = mrc.ec;
+
+						int newposition = Math.min(p + aligned(len) - tlvheadlen, buff.writerIndex());
+						buff.readerIndex(newposition);
+						break;
+					}
+
+					case CLS_INTARRAY: {
+						if (len != 8)
+							throw new CodecException("int_length_error,len=" + len);
+						int value = buff.readInt();
+
+						Object a = map.get(key);
+						if (a == null) {
+							ArrayList<Integer> aa = new ArrayList<Integer>();
+							aa.add(value);
+							map.put(key, aa);
+						} else {
+							ArrayList<Integer> aa = (ArrayList<Integer>) a;
+							aa.add(value);
+						}
+						break;
+					}
+					case CLS_LONGARRAY: {
+						if (len != 12)
+							throw new CodecException("long_length_error,len=" + len);
+						long value = buff.readLong();
+
+						Object a = map.get(key);
+						if (a == null) {
+							ArrayList<Long> aa = new ArrayList<Long>();
+							aa.add(value);
+							map.put(key, aa);
+						} else {
+							ArrayList<Long> aa = (ArrayList<Long>) a;
+							aa.add(value);
+						}
+						break;
+					}
+					case CLS_DOUBLEARRAY: {
+						if (len != 12)
+							throw new CodecException("double_length_error,len=" + len);
+						double value = buff.readDouble();
+
+						Object a = map.get(key);
+						if (a == null) {
+							ArrayList<Double> aa = new ArrayList<Double>();
+							aa.add(value);
+							map.put(key, aa);
+						} else {
+							ArrayList<Double> aa = (ArrayList<Double>) a;
+							aa.add(value);
+						}
+						break;
+					}
+					case CLS_STRINGARRAY: {
+						String value = readString(buff, len - tlvheadlen, AvenueCodec.toEncoding(encoding));
+
+						Object a = map.get(key);
+						if (a == null) {
+							ArrayList<String> aa = new ArrayList<String>();
+							aa.add(value);
+							map.put(key, aa);
+						} else {
+							ArrayList<String> aa = (ArrayList<String>) a;
+							aa.add(value);
+						}
+
+						break;
+					}
+
+					case CLS_STRUCTARRAY: {
+						HashMap<String, Object> value = decodeStruct(buff, len - tlvheadlen, tlvType, encoding);
+
+						Object a = map.get(key);
+						if (a == null) {
+							ArrayList<HashMap<String, Object>> aa = new ArrayList<HashMap<String, Object>>();
+							aa.add(value);
+							map.put(key, aa);
+						} else {
+							ArrayList<HashMap<String, Object>> aa = (ArrayList<HashMap<String, Object>>) a;
+							aa.add(value);
+						}
+						break;
+					}
+					case CLS_OBJECTARRAY: {
+
+						int p = buff.readerIndex();
+
+						MapWithReturnCode mrc = decode(tlvType.objectDef.typeToKeyMap, tlvType.objectDef.keyToTypeMap,
+								tlvType.objectDef.keyToFieldMap, buff, p, len - tlvheadlen, encoding, needEncode);
+
+						Object a = map.get(key);
+						if (a == null) {
+							ArrayList<HashMap<String, Object>> aa = new ArrayList<HashMap<String, Object>>();
+							aa.add(mrc.body);
+							map.put(key, aa);
+						} else {
+							ArrayList<HashMap<String, Object>> aa = (ArrayList<HashMap<String, Object>>) a;
+							aa.add(mrc.body);
+						}
+
+						if (mrc.ec != 0 && errorCode == 0)
+							errorCode = mrc.ec;
+
+						int newposition = Math.min(p + aligned(len) - tlvheadlen, buff.writerIndex());
+						buff.readerIndex(newposition);
+						break;
+					}
+
+					default: {
+						skipRead(buff, aligned(len) - tlvheadlen);
+						break;
+					}
+					}
+				}
+			}
+		}
+
+		int ec = validate(keyMap, fieldMap, map, needEncode, false);
+		if (ec != 0 && errorCode == 0)
+			errorCode = ec;
+		return new MapWithReturnCode(map, errorCode);
+	}
+
+	HashMap<String, Object> decodeStruct(ChannelBuffer buff, int maxLen, TlvType tlvType, int encoding)
+			throws Exception {
+
+		HashMap<String, Object> map = new HashMap<String, Object>();
+
+		int totalLen = 0;
+		for (int i = 0; i < tlvType.structDef.fields.size(); ++i) {
+			StructField f = tlvType.structDef.fields.get(i);
+			String key = f.name;
+			int t = f.cls;
+			int len = f.len;
+
+			if (len == -1)
+				len = maxLen - totalLen; // last field
+
+			totalLen += len;
+			if (totalLen > maxLen) {
+				throw new CodecException("struct_data_not_valid");
+			}
+
+			switch (t) {
+
+			case CLS_INT: {
+				int value = buff.readInt();
+				map.put(key, value);
+				break;
+			}
+			case CLS_LONG: {
+				long value = buff.readLong();
+				map.put(key, value);
+				break;
+			}
+			case CLS_DOUBLE: {
+				double value = buff.readDouble();
+				map.put(key, value);
+				break;
+			}
+			case CLS_STRING: {
+
+				if (version == 1) {
+					String value = readString(buff, len, AvenueCodec.toEncoding(encoding)).trim();
+					map.put(key, value);
+				}
+
+				if (version == 2) {
+					int t2 = buff.readShort() & 0xffff;
+					if (t2 == 0xffff) {
+						len = buff.readInt();
+						totalLen += aligned(6 + len);
+						if (totalLen > maxLen) {
+							throw new CodecException("struct_data_not_valid");
+						}
+						String value = getString(buff, len, AvenueCodec.toEncoding(encoding)).trim();
+						map.put(key, value);
+
+						skipRead(buff, aligned(6 + len) - 6);
+					} else {
+						len = t2;
+						totalLen += aligned(2 + len);
+						if (totalLen > maxLen) {
+							throw new CodecException("struct_data_not_valid");
+						}
+						String value = getString(buff, len, AvenueCodec.toEncoding(encoding)).trim();
+						map.put(key, value);
+
+						skipRead(buff, aligned(2 + len) - 2);
+					}
+				}
+				break;
+			}
+
+			case CLS_SYSTEMSTRING: {
+				if (version == 1) {
+					len = buff.readInt(); // length for system string
+					totalLen += 4;
+					totalLen += aligned(len);
+					if (totalLen > maxLen) {
+						throw new CodecException("struct_data_not_valid");
+					}
+					String value = readString(buff, len, AvenueCodec.toEncoding(encoding)).trim();
+					map.put(key, value);
+				}
+				break;
+			}
+
+			default: {
+				log.error("unknown type");
+				break;
+			}
+			}
+		}
+
+		return map;
+	}
+
+	public BufferWithReturnCode encodeRequest(int msgId, Map<String, Object> map, int encoding) {
+		try {
+			HashMap<String, String> keyMap = msgKeyToTypeMapForReq.get(msgId);
+			if (keyMap == null)
+				keyMap = TlvCodec.EMPTY_STRINGMAP;
+			HashMap<String, FieldInfo> fieldMap = msgKeyToFieldMapForReq.get(msgId);
+			ChannelBuffer buff = ChannelBuffers.dynamicBuffer(256);
+			int ec = encode(buff, keyMap, fieldMap, map, encoding, false);
+			return new BufferWithReturnCode(buff, ec);
+		} catch (Exception e) {
+			log.error("encode request error", e);
+			return new BufferWithReturnCode(EMPTY_BUFFER, ErrorCodes.TLV_ERROR);
+		}
+	}
+
+	public BufferWithReturnCode encodeResponse(int msgId, Map<String, Object> map, int encoding) {
+		try {
+			HashMap<String, String> keyMap = msgKeyToTypeMapForRes.get(msgId);
+			if (keyMap == null)
+				keyMap = TlvCodec.EMPTY_STRINGMAP;
+			HashMap<String, FieldInfo> fieldMap = msgKeyToFieldMapForRes.get(msgId);
+			ChannelBuffer buff = ChannelBuffers.dynamicBuffer(256);
+			int ec = encode(buff, keyMap, fieldMap, map, encoding, true);
+			return new BufferWithReturnCode(buff, ec);
+		} catch (Exception e) {
+			log.error("encode response error", e);
+			return new BufferWithReturnCode(EMPTY_BUFFER, ErrorCodes.TLV_ERROR);
+		}
+	}
+
+	int encode(ChannelBuffer buff, HashMap<String, String> keyMap, HashMap<String, FieldInfo> fieldMap,
+			Map<String, Object> dataMap, int encoding, boolean needEncode) throws Exception {
+
+		int errorCode = 0;
+		int ec = validate(keyMap, fieldMap, dataMap, needEncode, false);
+		if (ec != 0 && errorCode == 0)
+			errorCode = ec;
+
+		for (Map.Entry<String, Object> entry : dataMap.entrySet()) {
+			String key = entry.getKey();
+			Object value = entry.getValue();
+
+			if (value == null)
+				continue;
+
+			String typeName = keyMap.get(key);
+			if (typeName != null) {
+
+				TlvType tlvType = typeNameToCodeMap.get(typeName);
+				if (tlvType == null)
+					tlvType = UNKNOWN;
+
+				switch (tlvType.cls) {
+
+				case CLS_INT: {
+					encodeInt(buff, tlvType.code, value);
+					break;
+				}
+				case CLS_LONG: {
+					encodeLong(buff, tlvType.code, value);
+					break;
+				}
+				case CLS_DOUBLE: {
+					encodeDouble(buff, tlvType.code, value);
+					break;
+				}
+
+				case CLS_STRING: {
+					encodeString(buff, tlvType.code, value, encoding);
+					break;
+				}
+
+				case CLS_STRUCT: {
+					encodeStruct(buff, tlvType, value, encoding);
+					break;
+				}
+
+				case CLS_OBJECT: {
+					ec = encodeObject(buff, tlvType, value, encoding, needEncode);
+					if (ec != 0 && errorCode == 0)
+						errorCode = ec;
+					break;
+				}
+
+				case CLS_INTARRAY: {
+					ec = encodeArray(buff, tlvType, value, encoding, needEncode);
+					if (ec != 0 && errorCode == 0)
+						errorCode = ec;
+					break;
+				}
+				case CLS_LONGARRAY: {
+					ec = encodeArray(buff, tlvType, value, encoding, needEncode);
+					if (ec != 0 && errorCode == 0)
+						errorCode = ec;
+					break;
+				}
+				case CLS_DOUBLEARRAY: {
+					ec = encodeArray(buff, tlvType, value, encoding, needEncode);
+					if (ec != 0 && errorCode == 0)
+						errorCode = ec;
+					break;
+				}
+				case CLS_STRINGARRAY: {
+					ec = encodeArray(buff, tlvType, value, encoding, needEncode);
+					if (ec != 0 && errorCode == 0)
+						errorCode = ec;
+					break;
+				}
+				case CLS_STRUCTARRAY: {
+					ec = encodeArray(buff, tlvType, value, encoding, needEncode);
+					if (ec != 0 && errorCode == 0)
+						errorCode = ec;
+					break;
+				}
+				case CLS_OBJECTARRAY: {
+					ec = encodeArray(buff, tlvType, value, encoding, needEncode);
+					if (ec != 0 && errorCode == 0)
+						errorCode = ec;
+					break;
+				}
+				case CLS_BYTES: {
+                    if (!(value instanceof byte[] ))
+                        throw new CodecException("not supported type for bytes");
+
+					encodeBytes(buff, tlvType.code, value);
+					break;
+				}
+
+				default:
+					break;
+				}
+			}
+		}
+
+		return errorCode;
+	}
+
+	void encodeInt(ChannelBuffer buff, int code, Object v) {
+		int value = TypeSafe.anyToInt(v);
+		buff.writeShort((short) code);
+		buff.writeShort((short) 8);
+		buff.writeInt(value);
+	}
+
+	void encodeLong(ChannelBuffer buff, int code, Object v) {
+		long value = TypeSafe.anyToLong(v);
+		buff.writeShort((short) code);
+		buff.writeShort((short) 12);
+		buff.writeLong(value);
+	}
+
+	void encodeDouble(ChannelBuffer buff, int code, Object v) {
+		double value = TypeSafe.anyToDouble(v);
+		buff.writeShort((short) code);
+		buff.writeShort((short) 12);
+		buff.writeDouble(value);
+	}
+
+	void encodeString(ChannelBuffer buff, int code, Object v, int encoding) throws Exception {
+		String value = TypeSafe.anyToString(v);
+		if (value == null)
+			return;
+		byte[] bytes = value.getBytes(AvenueCodec.toEncoding(encoding));
+		int tlvheadlen = 4;
+		int alignedLen = aligned(bytes.length + tlvheadlen);
+		if (alignedLen > 65535) {
+			tlvheadlen = 8;
+			alignedLen = aligned(bytes.length + tlvheadlen);
+		}
+
+		buff.writeShort((short) code);
+
+		if (tlvheadlen == 8) {
+			buff.writeShort((short) 0);
+			buff.writeInt(bytes.length + tlvheadlen);
+		} else {
+			buff.writeShort((short) (bytes.length + tlvheadlen));
+		}
+
+		buff.writeBytes(bytes);
+		writePad(buff);
+	}
+
+	void encodeBytes(ChannelBuffer buff, int code, Object v) {
+		byte[] bytes = (byte[]) v;
+		int tlvheadlen = 4;
+		int alignedLen = aligned(bytes.length + tlvheadlen);
+		if (alignedLen > 65535) {
+			tlvheadlen = 8;
+			alignedLen = aligned(bytes.length + tlvheadlen);
+		}
+
+		buff.writeShort((short) code);
+
+		if (tlvheadlen == 8) {
+			buff.writeShort((short) 0);
+			buff.writeInt(bytes.length + tlvheadlen);
+		} else {
+			buff.writeShort((short) (bytes.length + tlvheadlen));
+		}
+
+		buff.writeBytes(bytes);
+		writePad(buff);
+	}
+
+	void encodeStruct(ChannelBuffer buff, TlvType tlvType, Object o, int encoding) throws Exception {
+
+		if (!(o instanceof Map)) {
+			throw new CodecException("not supported type in encodeObject, type=" + o.getClass().getName());
+
+		}
+
+		Map<String, Object> datamap = (Map<String, Object>) o;
+
+		buff.writeShort((short) tlvType.code);
+		buff.writeShort(0);
+		int ps = buff.writerIndex();
+
+		for (int i = 0; i < tlvType.structDef.fields.size(); ++i) {
+			StructField f = tlvType.structDef.fields.get(i);
+
+			String key = f.name;
+			int t = f.cls;
+			int len = f.len;
+
+			if (!datamap.containsKey(key)) {
+				throw new CodecException("struct_not_valid, key not found, key=" + key);
+			}
+
+			Object v = datamap.get(key);
+			if (v == null)
+				v = "";
+
+			switch (t) {
+
+			case CLS_INT: {
+				buff.writeInt(TypeSafe.anyToInt(v));
+				break;
+			}
+			case CLS_LONG: {
+				buff.writeLong(TypeSafe.anyToLong(v));
+				break;
+			}
+			case CLS_DOUBLE: {
+				buff.writeDouble(TypeSafe.anyToDouble(v));
+				break;
+			}
+
+			case CLS_STRING: {
+
+				if (version == 1) {
+					if (v == null)
+						v = "";
+					byte[] s = TypeSafe.anyToString(v).getBytes(AvenueCodec.toEncoding(encoding));
+
+					int actuallen = s.length;
+					if (len == -1 || s.length == len) {
+						buff.writeBytes(s);
+					} else if (s.length < len) {
+						buff.writeBytes(s);
+						buff.writeBytes(new byte[len - s.length]);
+					} else {
+						throw new CodecException("string_too_long");
+					}
+					int alignedLen = aligned(len);
+					if (alignedLen != len) {
+						buff.writeBytes(new byte[alignedLen - len]); // pad
+																		// zeros
+					}
+				}
+				if (version == 2) {
+
+					if (v == null)
+						v = "";
+					byte[] s = TypeSafe.anyToString(v).getBytes(AvenueCodec.toEncoding(encoding));
+
+					if (s.length >= 65535) { // 0xffff
+						int alignedLen = aligned(6 + s.length);
+						buff.writeShort((short) 65535);
+						buff.writeInt(TypeSafe.anyToInt(s.length));
+						buff.writeBytes(s);
+						if (alignedLen - s.length - 6 > 0) {
+							buff.writeBytes(new byte[alignedLen - s.length - 6]);
+						}
+					} else {
+						int alignedLen = aligned(2 + s.length);
+						buff.writeShort((short) TypeSafe.anyToInt(s.length));
+						buff.writeBytes(s);
+						if (alignedLen - s.length - 2 > 0) {
+							buff.writeBytes(new byte[alignedLen - s.length - 2]);
+						}
+					}
+				}
+				break;
+			}
+
+			case CLS_SYSTEMSTRING: {
+
+				if (version == 1) {
+					if (v == null)
+						v = "";
+					byte[] s = TypeSafe.anyToString(v).getBytes(AvenueCodec.toEncoding(encoding));
+
+					buff.writeInt(TypeSafe.anyToInt(s.length));
+					buff.writeBytes(s);
+
+					int alignedLen = aligned(s.length);
+					if (s.length != alignedLen) {
+						buff.writeBytes(new byte[alignedLen - s.length]);
+					}
+
+				}
+				break;
+			}
+
+			default: {
+				log.error("unknown type");
+				break;
+			}
+			}
+
+		}
+
+		int totalLen = buff.writerIndex() - ps;
+		int tlvheadlen = 4;
+		int alignedLen = aligned(totalLen + tlvheadlen);
+
+		if (alignedLen > 65535) {
+			tlvheadlen = 8;
+			alignedLen = aligned(totalLen + tlvheadlen);
+		}
+
+		if (tlvheadlen == 4) {
+			buff.setShort(ps - 2, (short) (totalLen + tlvheadlen));
+		} else {
+			buff.writeInt(0);
+			int pe = buff.writerIndex();
+			int i = 0;
+			while (i < totalLen) {
+				buff.setByte(pe - 1 - i, buff.getByte(pe - 1 - i - 4));
+				i += 1;
+			}
+
+			buff.setShort(ps - 2, 0);
+			buff.setInt(ps, totalLen + tlvheadlen);
+		}
+
+		writePad(buff);
+	}
+
+	int encodeObject(ChannelBuffer buff, TlvType tlvType, Object v, int encoding, boolean needEncode) throws Exception {
+
+		if (!(v instanceof Map)) {
+			throw new CodecException("not supported type in encodeObject, type=" + v.getClass().getName());
+		}
+
+		Map<String, Object> datamap = (Map<String, Object>) v;
+
+		buff.writeShort((short) tlvType.code);
+		buff.writeShort(0);
+		int ps = buff.writerIndex();
+
+		int ec = encode(buff, tlvType.objectDef.keyToTypeMap, tlvType.objectDef.keyToFieldMap, datamap, encoding,
+				needEncode);
+
+		int totalLen = buff.writerIndex() - ps;
+
+		int tlvheadlen = 4;
+		int alignedLen = aligned(totalLen + tlvheadlen);
+
+		if (alignedLen > 65535) {
+			tlvheadlen = 8;
+			alignedLen = aligned(totalLen + tlvheadlen);
+		}
+
+		if (tlvheadlen == 4) {
+			buff.setShort(ps - 2, (short) (totalLen + tlvheadlen));
+		} else {
+			buff.writeInt(0);
+			int pe = buff.writerIndex();
+			int i = 0;
+			while (i < totalLen) {
+				buff.setByte(pe - 1 - i, buff.getByte(pe - 1 - i - 4));
+				i += 1;
+			}
+
+			buff.setShort(ps - 2, 0);
+			buff.setInt(ps, totalLen + tlvheadlen);
+		}
+
+		writePad(buff);
+
+		return ec;
+	}
+
+	int encodeArray(ChannelBuffer buff, TlvType tlvType, Object o, int encoding, boolean needEncode) throws Exception {
+
+		if (o instanceof List) {
+			List list = (List) o;
+
+			int errorCode = 0;
+			for (Object v : list) {
+				switch (tlvType.cls) {
+				case CLS_INTARRAY:
+					encodeInt(buff, tlvType.code, v);
+					break;
+				case CLS_LONGARRAY:
+					encodeLong(buff, tlvType.code, v);
+					break;
+				case CLS_DOUBLEARRAY:
+					encodeDouble(buff, tlvType.code, v);
+					break;
+				case CLS_STRINGARRAY:
+					encodeString(buff, tlvType.code, v, encoding);
+					break;
+				case CLS_STRUCTARRAY:
+					encodeStruct(buff, tlvType, v, encoding);
+					break;
+				case CLS_OBJECTARRAY:
+					int ec = encodeObject(buff, tlvType, v, encoding, needEncode);
+					if (ec != 0 && errorCode == 0)
+						errorCode = ec;
+					break;
+				}
+			}
+			return errorCode;
+		}
+
+		throw new CodecException("not supported type in encodeArray, type=" + o.getClass().getName());
+
+	}
+
+	// ignore filter functions used in scalabpe
+
+	HashMap<String, Object> anyToStruct(TlvType tlvType, Object value, boolean addConvertFlag) {
+
+		if (!(value instanceof Map))
+			throw new CodecException("struct_not_valid");
+
+		HashMap<String, Object> datamap = (HashMap<String, Object>) value;
+		fastConvertStruct(tlvType, datamap, addConvertFlag);
+		return datamap;
+	}
+
+	// ignore anyToObject used in scalabpe
+
+	ArrayList<Integer> anyToIntArray(Object value) {
+
+		if (value instanceof ArrayList) {
+			ArrayList list = (ArrayList) value;
+			if (list.size() > 0 && list.get(0) instanceof Integer) {
+				return list;
+			}
+		}
+
+		if (value instanceof List) {
+			ArrayList<Integer> arr = new ArrayList<Integer>();
+			List list = (List) value;
+			for (Object o : list) {
+				arr.add(TypeSafe.anyToInt(o));
+			}
+			return arr;
+		}
+
+		throw new CodecException("not supported type, type=" + value.getClass().getName());
+	}
+
+	ArrayList<Long> anyToLongArray(Object value) {
+
+		if (value instanceof ArrayList) {
+			ArrayList list = (ArrayList) value;
+			if (list.size() > 0 && list.get(0) instanceof Long) {
+				return list;
+			}
+		}
+
+		if (value instanceof List) {
+			ArrayList<Long> arr = new ArrayList<Long>();
+			List list = (List) value;
+			for (Object o : list) {
+				arr.add(TypeSafe.anyToLong(o));
+			}
+			return arr;
+		}
+
+		throw new CodecException("not supported type, type=" + value.getClass().getName());
+	}
+
+	ArrayList<Double> anyToDoubleArray(Object value) {
+
+		if (value instanceof ArrayList) {
+			ArrayList list = (ArrayList) value;
+			if (list.size() > 0 && list.get(0) instanceof Double) {
+				return list;
+			}
+		}
+
+		if (value instanceof List) {
+			ArrayList<Double> arr = new ArrayList<Double>();
+			List list = (List) value;
+			for (Object o : list) {
+				arr.add(TypeSafe.anyToDouble(o));
+			}
+			return arr;
+		}
+
+		throw new CodecException("not supported type, type=" + value.getClass().getName());
+	}
+
+	ArrayList<String> anyToStringArray(Object value) {
+
+		if (value instanceof ArrayList) {
+			ArrayList list = (ArrayList) value;
+			if (list.size() > 0 && list.get(0) instanceof String) {
+				return list;
+			}
+		}
+
+		if (value instanceof List) {
+			ArrayList<String> arr = new ArrayList<String>();
+			List list = (List) value;
+			for (Object o : list) {
+				arr.add(TypeSafe.anyToString(o));
+			}
+			return arr;
+		}
+
+		throw new CodecException("not supported type, type=" + value.getClass().getName());
+	}
+
+	ArrayList<HashMap<String, Object>> anyToStructArray(TlvType tlvType, Object value, boolean addConvertFlag) {
+
+		if (value instanceof ArrayList) {
+			ArrayList list = (ArrayList) value;
+			if (list.size() > 0 && list.get(0) instanceof HashMap) {
+				for (Object o : list) {
+					HashMap<String, Object> m = (HashMap<String, Object>) o;
+					fastConvertStruct(tlvType, m, addConvertFlag);
+				}
+				return list;
+			}
+		}
+
+		if (value instanceof List) {
+			ArrayList<HashMap<String, Object>> arr = new ArrayList<HashMap<String, Object>>();
+			List list = (List) value;
+			for (Object o : list) {
+				arr.add(anyToStruct(tlvType, o, addConvertFlag));
+			}
+			return arr;
+		}
+
+		throw new CodecException("not supported type, type=" + value.getClass().getName());
+	}
+
+	void fastConvertStruct(TlvType tlvType, HashMap<String, Object> datamap, boolean addConvertFlag) {
+
+		if (datamap.containsKey(CONVERTED_FLAG)) {
+			datamap.remove(CONVERTED_FLAG);
+			return;
+		}
+
+		ArrayList<String> to_be_removed = null;
+		for (String k : datamap.keySet()) {
+			if (!tlvType.structDef.keys.contains(k)) {
+				if (to_be_removed == null)
+					to_be_removed = new ArrayList<String>();
+				to_be_removed.add(k);
+			}
+		}
+		if (to_be_removed != null) {
+			for (String k : to_be_removed)
+				datamap.remove(k);
+		}
+
+		for (StructField f : tlvType.structDef.fields) {
+
+			String key = f.name;
+
+			if (!datamap.containsKey(key)) {
+				throw new CodecException("struct_not_valid, key not found, key=" + key);
+			}
+
+			Object v = datamap.get(key);
+			if (v == null) {
+				switch (f.cls) {
+				case CLS_STRING:
+					datamap.put(key, "");
+					break;
+				case CLS_SYSTEMSTRING:
+					datamap.put(key, "");
+					break;
+				case CLS_INT:
+					datamap.put(key, 0);
+					break;
+				case CLS_LONG:
+					datamap.put(key, 0L);
+					break;
+				case CLS_DOUBLE:
+					datamap.put(key, 0.0);
+					break;
+				}
+			} else {
+				switch (f.cls) {
+				case CLS_STRING:
+					if (!(v instanceof String))
+						datamap.put(key, TypeSafe.anyToString(v));
+					break;
+				case CLS_SYSTEMSTRING:
+					if (!(v instanceof String))
+						datamap.put(key, TypeSafe.anyToString(v));
+					break;
+				case CLS_INT:
+					if (!(v instanceof Integer))
+						datamap.put(key, TypeSafe.anyToInt(v));
+					break;
+				case CLS_LONG:
+					if (!(v instanceof Long))
+						datamap.put(key, TypeSafe.anyToLong(v));
+					break;
+				case CLS_DOUBLE:
+					if (!(v instanceof Double))
+						datamap.put(key, TypeSafe.anyToDouble(v));
+					break;
+				}
+			}
+
+		}
+
+		if (addConvertFlag) {
+			datamap.put(CONVERTED_FLAG, "1");
+		}
+
+	}
+
+	// ignore anyToObjectArray used in scalabpe
+
+	int validate(HashMap<String, String> keyMap, HashMap<String, FieldInfo> fieldMap, Map<String, Object> dataMap,
+			boolean needEncode, boolean addConvertFlag) {
+
+		if (fieldMap == null || fieldMap.size() == 0)
+			return 0;
+
+		int errorCode = 0;
+
+		for (Map.Entry<String, FieldInfo> entry : fieldMap.entrySet()) {
+			String key = entry.getKey();
+			FieldInfo fieldInfo = entry.getValue();
+
+			String typeName = keyMap.get(key);
+			TlvType tlvType = typeNameToCodeMap.get(typeName);
+
+			Object value = dataMap.get(key);
+			if (value == null) {
+				if (fieldInfo != null && fieldInfo.defaultValue != null) {
+					dataMap.put(key, safeConvertValue(fieldInfo.defaultValue, tlvType.cls));
+				}
+			} else {
+				switch (tlvType.cls) {
+				case CLS_STRUCT: {
+                    if( value instanceof HashMap) {
+                        HashMap<String, Object> m = (HashMap<String, Object>) value;
+                        setStructDefault(m, tlvType);
                     }
-                }
-                breakFlag = true;
-            }
-            if( buff.position() + len - tlvheadlen > limit ) {
-                log.error("length_error,code="+code+",len="+len+",limit="+limit+",map="+map.toString());
-                if( log.isDebugEnabled() ) {
-                    log.debug("body bytes="+toHexString(buff));
-                }
-                breakFlag = true;
-            }
-
-            if( !breakFlag ) {
-
-            	TlvType config = typeCodeToNameMap.get(code);
-            	if( config == null ) config = TlvType.UNKNOWN;
-
-            	String key = keyMap.get(config.name);
-
-                // if is array, check to see if is itemType
-
-                if( key == null && TlvCodec.isArray(config.cls) ) {
-                    key = keyMap.get(config.itemType.name);
-                    if( key != null ) {
-                        config = config.itemType;
-                    }
-                }
-
-                if( config == TlvType.UNKNOWN || key == null ) {
-
-                    int newposition = buff.position()+aligned(len)-tlvheadlen;
-                    if( newposition > buff.limit()) newposition = buff.limit();
-
-                    buff.position(newposition);
-
-                } else {
-
-                    switch(config.cls) {
-
-                        case TlvCodec.CLS_INT:
-	                        {
-	                            if( len != 8 ) throw new CodecException("int_length_error,len="+len);
-	                            int value = buff.getInt();
-	                            map.put(key,value);
-	                        }
-                            break;
-
-                        case TlvCodec.CLS_STRING:
-	                        {
-	                            String value = new String(buff.array(),buff.position(),len-tlvheadlen,AvenueCodec.ENCODING_STRINGS[encoding]);
-	
-	                            map.put(key,value);
-	
-	                            int newposition = buff.position()+aligned(len)-tlvheadlen;
-	                            if( newposition > buff.limit()) newposition = buff.limit();
-	
-	                            buff.position(newposition);
-	                        }
-                            break;
-
-                        case TlvCodec.CLS_BYTES:
-                        	{
-	                            int p = buff.position();
-	                            byte[] value = new byte[len-tlvheadlen];
-	                            buff.get(value);
-	                            map.put(key,value);
-	
-	                            int newposition = p+aligned(len)-tlvheadlen;
-	                            if( newposition > buff.limit()) newposition = buff.limit();
-	
-	                            buff.position(newposition);
-	                        }
-                            break;
-
-                        case TlvCodec.CLS_STRUCT:
-                        	{
-	                            HashMap<String,Object> value = decodeStruct(buff,len-tlvheadlen,config,encoding);
-	                            map.put(key,value);
-	                        }
-                            break;
-
-                        case TlvCodec.CLS_INTARRAY:
-                        	{
-	                            if( len != 8 ) throw new CodecException("int_length_error,len="+len);
-	                            int value = buff.getInt();
-	
-		                        Object a = map.get(key);
-		                        if( a == null ) {
-		                        	ArrayList<Integer> aa = new ArrayList<Integer>();
-		                            aa.add(value);
-		                            map.put(key,aa);
-		                        } else {
-		                        	ArrayList<Integer> aa = (ArrayList<Integer>)a;
-		                            aa.add(value);
-		                        }
-	                        }
-                        	break;
-
-                        case TlvCodec.CLS_STRINGARRAY:
-                        	{
-	                            String value = new String(buff.array(),buff.position(),len-tlvheadlen,AvenueCodec.ENCODING_STRINGS[encoding]);
-	
-	                            Object a = map.get(key);
-	                            if( a == null ) {
-	                            	ArrayList<String> aa = new ArrayList<String>();
-	                                aa.add(value);
-	                                map.put(key,aa);
-	                            } else {
-	                            	ArrayList<String> aa = (ArrayList<String>)a;
-	                            	aa.add(value);
-	                            }
-	
-	                            int newposition = buff.position()+aligned(len)-tlvheadlen;
-	                            if( newposition > buff.limit()) newposition = buff.limit();
-	
-	                            buff.position(newposition);
-	                        }
-	                        break;
-
-                        case TlvCodec.CLS_STRUCTARRAY:
-	                        {
-	                            HashMap<String,Object> value = decodeStruct(buff,len-tlvheadlen,config,encoding);
-	
-	                            Object a = map.get(key);
-	                            if( a == null ) {
-	                            	ArrayList<HashMap<String,Object>> aa = new ArrayList<HashMap<String,Object>>();
-	                                aa.add(value);
-	                                map.put(key,aa);
-	                            } else {
-	                            	ArrayList<HashMap<String,Object>> aa = (ArrayList<HashMap<String,Object>>)a;
-	                            	aa.add(value);
-	                            }
-	                        }
-	                        break;
-
-                        default:
-
-                           int newposition = buff.position()+aligned(len)-tlvheadlen;
-                            if( newposition > buff.limit()) newposition = buff.limit();
-
-                            buff.position(newposition);
-                        }
-                    }
-                }
-            }
-
-
-        return map;
-    }
-
-    HashMap<String,Object> decodeStruct(ByteBuffer buff,int maxLen,TlvType config,int encoding) throws Exception  {
-
-    	HashMap<String,Object> map = new HashMap<String,Object>();
-
-        int totalLen = 0;
-        for( int i= 0 ;  i <config.structNames.length ; ++i ) {
-
-            String key = config.structNames[i];
-            int t = config.structTypes[i];
-            int len = config.structLens[i];
-
-            if( len == -1 ) len = maxLen - totalLen; // last field
-
-            totalLen += len;
-            if( totalLen > maxLen ) {
-                throw new CodecException("struct_data_not_valid");
-            }
-
-            switch(t) {
-
-                case TlvCodec.CLS_INT:
-	                {
-	                    int value = buff.getInt();
-	                    map.put(key,value);
-	                }
-	                break;
-
-                case TlvCodec.CLS_STRING :
-                	{
-                		String value = new String(buff.array(),buff.position(),len,AvenueCodec.ENCODING_STRINGS[encoding]).trim();
-	                    map.put(key,value);
-	
-	                    int newposition = buff.position()+aligned(len);
-	                    if( newposition > buff.limit()) newposition = buff.limit();
-	
-	                    buff.position(newposition);
-	                }
-                	break;
-
-                case TlvCodec.CLS_SYSTEMSTRING:
-	                {
-	                    len = buff.getInt();  // length for system string
-	                    totalLen += aligned(len);
-	                    if( totalLen > maxLen ) {
-	                        throw new CodecException("struct_data_not_valid");
-	                    }
-	                    String value = new String(buff.array(),buff.position(),len,AvenueCodec.ENCODING_STRINGS[encoding]).trim();
-	                    map.put(key,value);
-	
-	                    int newposition = buff.position()+aligned(len);
-	                    if( newposition > buff.limit()) newposition = buff.limit();
-	
-	                    buff.position(newposition);
-	                }
-	                break;
-
-                default:
-
-                    log.error("unknown type");
-            }
-        }
-
-        return map;
-    }
-
-    
-    public ByteBufferWithReturnCode encodeRequest(int msgId,Map<String,Object> map,int encoding) {
-        try {
-        	HashMap<String,String> keyMap = msgKeyToTypeMapForReq.get(msgId);
-        	if( keyMap == null ) keyMap = TlvCodec.EMPTY_STRINGMAP;
-        	HashMap<String,TlvFieldInfo> fieldInfoMap = msgKeyToFieldInfoMapForReq.get(msgId);
-            int ec = validateAndEncode(keyMap,fieldInfoMap,map,false);
-            ByteBuffer b = encode(keyMap,map,encoding);
-            return new ByteBufferWithReturnCode(b,ec);
-        } catch(Exception e) {
-                log.error("encode request error",e);
-                return new ByteBufferWithReturnCode(EMPTY_BUFFER,ErrorCodes.TLV_ERROR);
-        }
-    }
-
-    public ByteBufferWithReturnCode encodeResponse(int msgId,Map<String,Object> map,int encoding) {
-        try {
-        	HashMap<String,String> keyMap = msgKeyToTypeMapForRes.get(msgId);
-        	if( keyMap == null ) keyMap = TlvCodec.EMPTY_STRINGMAP;
-        	HashMap<String,TlvFieldInfo> fieldInfoMap = msgKeyToFieldInfoMapForRes.get(msgId);
-        	int ec = validateAndEncode(keyMap,fieldInfoMap,map,true);
-        	ByteBuffer b = encode(keyMap,map,encoding);
-            return new ByteBufferWithReturnCode(b,ec);
-        } catch(Exception e) {
-                log.error("encode response error",e);
-                return new ByteBufferWithReturnCode(EMPTY_BUFFER,ErrorCodes.TLV_ERROR);
-        }
-    }
-
-    ByteBuffer encode(HashMap<String,String> keyMap,Map<String,Object> map,int encoding) throws Exception {
-
-    	ArrayList<ByteBuffer> buffs = new ArrayList<ByteBuffer>(1);
-        buffs.add( ByteBuffer.allocate(bufferSize) );
-
-        
-        for( Map.Entry<String,Object> entry : map.entrySet() ) {
-	        	 String key = entry.getKey();
-	        	 Object value = entry.getValue();
-        		 
-        		 if( value == null ) continue;
-        		 
-                 String name = keyMap.get(key);
-                 if( name != null ) {
-
-                	 TlvType config = typeNameToCodeMap.get(name);
-                	 if(config == null ) config = TlvType.UNKNOWN;
-
-                     switch(config.cls) {
-
-                         case TlvCodec.CLS_INT: {
-                             encodeInt(buffs, config.code, value);
-                             break;
-                         }
-
-                         case TlvCodec.CLS_STRING: {
-                             encodeString(buffs, config.code, value, encoding);
-                             break;
-                         }
-
-                         case TlvCodec.CLS_BYTES: {
-                             encodeBytes(buffs, config.code, value);
-                             break;
-                         }
-
-                         case TlvCodec.CLS_STRUCT: {
-                             encodeStruct(buffs, config, value, encoding);
-                             break;
-                         }
-
-                         case TlvCodec.CLS_INTARRAY: {
-                             encodeIntArray(buffs, config.code, value);
-                         	 break;
-                         }
-
-                         case TlvCodec.CLS_STRINGARRAY: {
-                             encodeStringArray(buffs, config.code, value, encoding);
-                             break;
-                         }
-
-                         case TlvCodec.CLS_STRUCTARRAY: {
-                             encodeStructArray(buffs, config, value, encoding);
-                             break;
-                         }
-
-                         default:
-                             ;
-                         }
-                     }
-        }
-    
-    	for( ByteBuffer b: buffs ) {
-    		b.flip();
-    	}
-
-        if( buffs.size() == 1 )
-            return buffs.get(0);
-
-        int total = 0;
-        for( ByteBuffer b: buffs ) {
-    		total += b.limit();
-    	}
-        
-        ByteBuffer totalBuff = ByteBuffer.allocate(total);
-        
-        for( ByteBuffer b: buffs ) {
-        	totalBuff.put(b);
-    	}
-        totalBuff.flip();
-        buffs.clear();
-        return totalBuff;
-    }
-    
-    void encodeInt(ArrayList<ByteBuffer> buffs,int code, Object v) {
-        int value = anyToInt(v);
-        ByteBuffer buff = findBuff(buffs,8);
-        buff.putShort((short)code);
-        buff.putShort((short)8);
-        buff.putInt(value);
-    }
-
-    void encodeString(ArrayList<ByteBuffer> buffs,int code, Object v, int encoding) throws Exception {
-        String value = anyToString(v);
-        if( value == null ) return;
-        byte[] bytes = value.getBytes(AvenueCodec.ENCODING_STRINGS[encoding]);
-        int tlvheadlen = 4;
-        int alignedLen = aligned(bytes.length+tlvheadlen);
-        if( alignedLen > 65535 && enableExtendTlv ) {
-            tlvheadlen = 8;
-            alignedLen = aligned(bytes.length+tlvheadlen);
-        }
-
-        ByteBuffer buff = findBuff(buffs,alignedLen);
-        buff.putShort((short)code);
-
-        if( tlvheadlen == 8 ) {
-            buff.putShort((short)0);
-            buff.putInt(bytes.length+tlvheadlen);
-        } else {
-            buff.putShort((short)(bytes.length+tlvheadlen));
-        }
-
-        buff.put(bytes);
-        buff.position(buff.position() + alignedLen - bytes.length - tlvheadlen );
-    }
-
-    void encodeBytes(ArrayList<ByteBuffer> buffs,int code,Object v) {
-        byte[] bytes = (byte[])v;
-        int tlvheadlen = 4;
-        int alignedLen = aligned(bytes.length+tlvheadlen);
-        if( alignedLen > 65535 && enableExtendTlv ) {
-            tlvheadlen = 8;
-            alignedLen = aligned(bytes.length+tlvheadlen);
-        }
-
-        ByteBuffer buff = findBuff(buffs,alignedLen);
-        buff.putShort((short)code);
-
-        if( tlvheadlen == 8 ) {
-            buff.putShort((short)0);
-            buff.putInt(bytes.length+tlvheadlen);
-        } else {
-            buff.putShort((short)(bytes.length+tlvheadlen));
-        }
-
-        buff.put(bytes);
-        buff.position(buff.position() + alignedLen - bytes.length - tlvheadlen );
-    }
-
-    void encodeStruct(ArrayList<ByteBuffer> buffs,TlvType config,Object value, int encoding) throws Exception  {
-
-    	if( !(value instanceof Map)) { 
-    		log.error("not supported type, type={}",value.getClass().getName());
-	    	return;
-	    }
-    	
-    	Map<String,Object> datamap = (Map<String,Object>)value;
-
-		List<Object> data = new ArrayList<Object>();
-        int totalLen = 0;
-
-        for( int i = 0 ; i <config.structNames.length ; ++i ) {
-
-            String key = config.structNames[i];
-            int t = config.structTypes[i];
-            int len = config.structLens[i];
-
-            if( !datamap.containsKey(key) ) {
-                String[] allKeys = config.structNames;
-                String[] missedKeys = findMissedKeys(allKeys,datamap);
-                throw new CodecException("struct_not_valid, struct names= "+mkString(allKeys,",")+", missed keys="+mkString(missedKeys,","));
-            }
-
-            Object v = datamap.get(key);
-            if( v == null ) v = "";
-
-            switch(t) {
-
-                case TlvCodec.CLS_INT: {
-                        totalLen += 4;
-                        data.add( anyToInt(v) );
+					break;
+				}
+				case CLS_STRUCTARRAY: {
+                    if( value instanceof ArrayList) {
+                        ArrayList<HashMap<String, Object>> lm = (ArrayList<HashMap<String, Object>>) value;
+                        for (HashMap<String, Object> m2 : lm)
+                            setStructDefault(m2, tlvType);
                     }
                     break;
+				}
+				}
+			}
 
-                case TlvCodec.CLS_STRING : {
+			value = dataMap.get(key);
+			ObjectWithReturnCode owr0 = validateValue(value, fieldInfo, needEncode);
+			if (owr0.ec != 0 && errorCode == 0)
+				errorCode = owr0.ec;
 
-                        if(v == null) v = "";
-                        byte[] s = anyToString(v).getBytes(AvenueCodec.ENCODING_STRINGS[encoding]);
+			if (owr0.v != null) {
 
-                        int actuallen = s.length;
-                        if( len == -1 ||  s.length == len) {
-                            totalLen += s.length;
-                            data.add(s);
-                        } else if( s.length < len ) {
-                            totalLen += len;
-                            data.add(s);
-                            data.add(new byte[len-s.length]); // pad zeros
-                        } else {
-                            throw new CodecException("string_too_long");
-                        }
-                        int alignedLen = aligned(len);
-                        if( alignedLen != len) {
-                            totalLen += (alignedLen - len) ;
-                            data.add(new byte[alignedLen-len]); // pad zeros
-                        }
-                    }
-                    break;
-                
-                case TlvCodec.CLS_SYSTEMSTRING: {
+				if (owr0.v != value) {
+					value = safeConvertValue(owr0.v, tlvType.cls);
+					dataMap.put(key, value);
+				}
 
-                        if(v == null) v = "";
-                        byte[] s = anyToString(v).getBytes(AvenueCodec.ENCODING_STRINGS[encoding]);
+				switch (tlvType.cls) {
+				case CLS_STRINGARRAY: {
+					ArrayList<String> l = anyToStringArray(value);
+					for (int i = 0; i < l.size(); ++i) {
+						ObjectWithReturnCode owr = validateValue(l.get(i), tlvType.itemType.fieldInfo, needEncode);
+						if (owr.ec != 0 && errorCode == 0)
+							errorCode = owr.ec;
+						l.set(i, TypeSafe.anyToString(owr.v));
+					}
+					dataMap.put(key, l);
+					break;
+				}
+				case CLS_INTARRAY: {
+					ArrayList<Integer> l = anyToIntArray(value);
+					for (int i = 0; i < l.size(); ++i) {
+						ObjectWithReturnCode owr = validateValue(l.get(i), tlvType.itemType.fieldInfo, needEncode);
+						if (owr.ec != 0 && errorCode == 0)
+							errorCode = owr.ec;
+						l.set(i, TypeSafe.anyToInt(owr.v));
+					}
+					dataMap.put(key, l);
+					break;
+				}
+				case CLS_LONGARRAY: {
+					ArrayList<Long> l = anyToLongArray(value);
+					for (int i = 0; i < l.size(); ++i) {
+						ObjectWithReturnCode owr = validateValue(l.get(i), tlvType.itemType.fieldInfo, needEncode);
+						if (owr.ec != 0 && errorCode == 0)
+							errorCode = owr.ec;
+						l.set(i, TypeSafe.anyToLong(owr.v));
+					}
+					dataMap.put(key, l);
+					break;
+				}
+				case CLS_DOUBLEARRAY: {
+					ArrayList<Double> l = anyToDoubleArray(value);
+					for (int i = 0; i < l.size(); ++i) {
+						ObjectWithReturnCode owr = validateValue(l.get(i), tlvType.itemType.fieldInfo, needEncode);
+						if (owr.ec != 0 && errorCode == 0)
+							errorCode = owr.ec;
+						l.set(i, TypeSafe.anyToDouble(owr.v));
+					}
+					dataMap.put(key, l);
+					break;
+				}
+				case CLS_STRUCT: {
+					HashMap<String, Object> m = anyToStruct(tlvType, value, addConvertFlag);
+					int ec = validateStruct(m, tlvType, needEncode);
+					if (ec != 0 && errorCode == 0)
+						errorCode = ec;
+					dataMap.put(key, m);
+					break;
+				}
+				case CLS_STRUCTARRAY: {
+					ArrayList<HashMap<String, Object>> l = anyToStructArray(tlvType, value, addConvertFlag);
+					for (int i = 0; i < l.size(); ++i) {
+						int ec = validateStruct(l.get(i), tlvType.itemType, needEncode);
+						if (ec != 0 && errorCode == 0)
+							errorCode = ec;
+					}
+					dataMap.put(key, l);
+					break;
+				}
+				default: {
+					break;
+				}
+				}
+			}
 
-                        int alignedLen = aligned(s.length);
-                        totalLen += 4;
-                        data.add(anyToInt(s.length));
-                        totalLen += alignedLen;
-                        data.add(s);
-                        if(  s.length != alignedLen) {
-                            data.add(new byte[alignedLen-s.length]); // pad zeros
-                        } 
-                    }
-                    break;
+		}
 
-                default:
-                    log.error("unknown type");
-            }
+		return errorCode;
+	}
 
-        }
+	ObjectWithReturnCode validateValue(Object v, FieldInfo fieldInfo, boolean needEncode) {
+		if (fieldInfo == null)
+			return new ObjectWithReturnCode(v, 0);
+		int errorCode = 0;
+		Object b = v;
+		if (fieldInfo.validator != null) {
+			int ret = fieldInfo.validator.validate(v);
+			if (ret != 0) {
+				log.error("validate_value_error, value=" + v + ", ret=" + ret);
+				if (errorCode == 0)
+					errorCode = ret;
+			}
+		}
+		if (needEncode && fieldInfo.encoder != null) {
+			b = fieldInfo.encoder.encode(v);
+		}
+		return new ObjectWithReturnCode(b, errorCode);
+	}
 
-        int tlvheadlen = 4;
-        int alignedLen = aligned(totalLen+tlvheadlen);
+	int validateStruct(Map<String, Object> map, TlvType tlvType, boolean needEncode) {
 
-        if( alignedLen > 65535 && enableExtendTlv ) {
-            tlvheadlen = 8;
-            alignedLen = aligned(totalLen+tlvheadlen);
-        }
+		int errorCode = 0;
+		for (StructField f : tlvType.structDef.fields) {
+			FieldInfo fieldInfo = f.fieldInfo;
+			if (fieldInfo != null) {
+				String key = f.name;
+				Object value = map.get(key);
+				if (fieldInfo.validator != null) {
+					int ret = fieldInfo.validator.validate(value);
+					if (ret != 0) {
+						log.error("validate_map_error, key=" + key + ", value=" + value + ", ret=" + ret);
+						if (errorCode == 0)
+							errorCode = ret;
+					}
+				}
+				if (needEncode && fieldInfo.encoder != null) {
+					Object v = fieldInfo.encoder.encode(value);
+					map.put(key, v);
+				}
+			}
+		}
+		return errorCode;
+	}
 
-        ByteBuffer buff = findBuff(buffs,alignedLen);
-        buff.putShort((short)config.code);
+	void setStructDefault(Map<String, Object> map, TlvType tlvType) {
+		for (StructField f : tlvType.structDef.fields) {
+			FieldInfo fieldInfo = f.fieldInfo;
+			if (fieldInfo != null && fieldInfo.defaultValue != null) {
+				String key = f.name;
+				Object value = map.get(key);
+				if (value == null) {
+					map.put(key, safeConvertValue(fieldInfo.defaultValue, f.cls));
+				}
+			}
+		}
+	}
 
-        if( tlvheadlen == 8 ) {
-            buff.putShort((short)0);
-            buff.putInt(totalLen+tlvheadlen);
-        } else {
-            buff.putShort((short)(totalLen+tlvheadlen));
-        }
-
-        for( Object v : data ) {
-        	if( v instanceof byte[] ) {
-        		buff.put((byte[])v);	
-        	} else if( v instanceof Integer )  {
-        		buff.putInt((Integer)v);	
-        	}
-        }
-
-        buff.position(buff.position() + alignedLen - totalLen - tlvheadlen);
-    }
-
-    void encodeIntArray(ArrayList<ByteBuffer> buffs,int code, Object value) {
-
-        if( value instanceof List ) {
-        	List list = (List)value; 
-        	for( Object o:list ) {
-        		encodeInt(buffs,code,o);
-        	}
-        	return;
-        }
-
-        log.error("not supported type, type={}",value.getClass().getName());
-    }
-
-    void encodeStringArray(ArrayList<ByteBuffer> buffs,int code, Object value, int encoding) throws Exception {
-
-        if( value instanceof List ) {
-        	List list = (List)value; 
-        	for( Object o:list ) {
-        		encodeString(buffs,code, o == null ? "" : o,encoding);
-        	}
-        	return;
-        }
-
-        log.error("not supported type, type={}",value.getClass().getName());
-    }
-
-    void encodeStructArray(ArrayList<ByteBuffer> buffs,TlvType config,Object value, int encoding) throws Exception  {
-
-        if( value instanceof List ) {
-        	List list = (List)value; 
-        	for( Object o:list ) {
-        		encodeStruct(buffs,config,o,encoding);
-        	}
-        	return;
-        }
-
-        log.error("not supported type, type={}",value.getClass().getName());
-    }
-
-    
-    int anyToInt(Object value) {
-        return TypeSafe.anyToInt(value);
-    }
-    String anyToString(Object value) {
-    	return TypeSafe.anyToString(value);
-    }
-
-    // new function
-    String[] findMissedKeys(String[] allKeys,Map<String,Object> map) {
-    	ArrayList<String> missedKeys = new ArrayList<String>();
-    	for( String key: allKeys) {
-    		if(!map.containsKey(key)) missedKeys.add(key);
-    	}
-    	return missedKeys.toArray(new String[0]);
-    }
-    
-    HashMap<String,Object> anyToStruct(TlvType config,Object value) {
-
-    	if( !(value instanceof Map) ) 
-    		throw new CodecException("struct_not_valid");
-
-    	HashMap<String,Object> retmap = new HashMap<String,Object>();
-    	Map<String,Object> datamap = (Map<String,Object>)value;
-        int i = 0;
-        
-        while( i < config.structNames.length ) {
-
-            String key = config.structNames[i];
-            int t = config.structTypes[i];
-            TlvFieldInfo fieldInfo = config.structFieldInfos[i];
-
-            if( !datamap.containsKey(key) && (fieldInfo == null || fieldInfo.defaultValue == null ) ) {
-                String[] allKeys = config.structNames;
-                String[] missedKeys = findMissedKeys(allKeys,datamap);
-                throw new CodecException("struct_not_valid, struct names= "+mkString(allKeys,",")+", missed keys="+mkString(missedKeys,","));
-            }
-
-            Object v = datamap.get(key);
-
-            if( v == null && fieldInfo != null && fieldInfo.defaultValue != null ) {
-                v = fieldInfo.defaultValue;
-            }
-            if( v == null ) v = "";
-
-            switch(t) {
-
-                case TlvCodec.CLS_INT :
-                    retmap.put(key,anyToInt(v));
-                    break;
-                case TlvCodec.CLS_STRING :
-                    retmap.put(key,anyToString(v));
-                    break;	
-                case TlvCodec.CLS_SYSTEMSTRING :
-                    retmap.put(key,anyToString(v));
-                    break;	
-            }
-
-            i += 1;
-        }
-        return retmap;
-          
-    }
-
-    List<Integer> anyToIntArray(Object value) {
-
-        if( value instanceof List ) {
-        	List<Integer> arr = new ArrayList<Integer>();
-        	List list = (List)value;
-        	for(Object o:list) {
-        		arr.add( anyToInt(o));
-        	}
-        	return arr;
-        }
-        
-        log.error("not supported type, type={}",value.getClass().getName());
-        return null;
-    }
-
-    List<String> anyToStringArray(Object value) {
-
-        if( value instanceof List ) {
-        	List<String> arr = new ArrayList<String>();
-        	List list = (List)value;
-        	for(Object o:list) {
-        		arr.add( anyToString(o));
-        	}
-        	return arr;
-        }
-        
-        log.error("not supported type, type={}",value.getClass().getName());
-        return null;
-    }
-
-    void changeTypeForMap(TlvType config, Map<String,Object> datamap) {
-        int i = 0;
-        while( i < config.structNames.length ) {
-
-            String key = config.structNames[i];
-            int t = config.structTypes[i];
-            TlvFieldInfo fieldInfo = config.structFieldInfos[i];
-
-            if( !datamap.containsKey(key) && (fieldInfo == null || fieldInfo.defaultValue == null ) ) {
-                String[] allKeys = config.structNames;
-                String[] missedKeys = findMissedKeys(allKeys,datamap);
-                throw new CodecException("struct_not_valid, struct names= "+mkString(allKeys,",")+", missed keys="+mkString(missedKeys,","));
-            }
-
-            Object v = datamap.get(key);
-            if( v == null && fieldInfo != null && fieldInfo.defaultValue != null ) {
-                v = fieldInfo.defaultValue ;
-                datamap.put(key,v);
-            }
-            if( v == null ) v = "";
-
-            switch(t) {
-                case TlvCodec.CLS_INT :
-                    if( !(v instanceof Integer) )
-                        datamap.put(key,anyToInt(v));
-                case TlvCodec.CLS_STRING :
-                    if( !(v instanceof String) )
-                        datamap.put(key,anyToString(v));
-                case TlvCodec.CLS_SYSTEMSTRING :
-                    if(!(v instanceof String) )
-                        datamap.put(key,anyToString(v));
-            }
-
-            i += 1;
-        }
-    }
-    
-    List<HashMap<String,Object>> anyToStructArray(TlvType config,Object value) {
-
-        if( value instanceof List ) {
-        	List<Object> list = (List<Object>)value;
-        	ArrayList<HashMap<String,Object>> arr = new ArrayList<HashMap<String,Object>>();
-        	for(int i=0;i<list.size();++i) {
-        		arr.add( anyToStruct(config,list.get(i)) );
-        	}
-        	return arr;
-        }
-        
-        log.error("not supported type, type={}",value.getClass().getName());
-        return null;
-    }
-
-    ByteBuffer findBuff(ArrayList<ByteBuffer> buffs,int len) {
-
-        // c++ requirment: array tlv must be continued, so always append to last buff 
-
-        //val avails = buffs.filter( _.remaining >= len )
-        //if( avails.size > 0 )
-           // return avails(0)
-
-    	ByteBuffer buff = buffs.get(buffs.size()-1);
-        if( buff.remaining() >= len ) return buff;
-
-        int needLen = len < bufferSize ? bufferSize : len;
-        buff = ByteBuffer.allocate(needLen);
-        buffs.add(buff);
-        return buff;
-    }
-
-    int aligned(int len) {
-        if( (len & 0x03) != 0)
-            return ((len >> 2) + 1) << 2;
-        else
-        	return len;
-    }
-
-    public String msgIdToName(int msgId) {
-        return msgIdToNameMap.get(msgId);
-    }
-    public int msgNameToId(String msgName) {
-    	Object o = msgNameToIdMap.get(msgName);
-    	if( o == null ) return 0;
-    	return (Integer)o;
-    }
+	Object safeConvertValue(Object v, int cls) {
+		switch (cls) {
+		case CLS_STRING:
+			return TypeSafe.anyToString(v);
+		case CLS_SYSTEMSTRING:
+			return TypeSafe.anyToString(v);
+		case CLS_INT:
+			return TypeSafe.anyToInt(v);
+		case CLS_LONG:
+			return TypeSafe.anyToLong(v);
+		case CLS_DOUBLE:
+			return TypeSafe.anyToDouble(v);
+		default:
+			return v;
+		}
+	}
 
 }

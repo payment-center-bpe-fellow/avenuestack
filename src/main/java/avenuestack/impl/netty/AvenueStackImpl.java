@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.StringReader;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -25,6 +24,8 @@ import java.util.regex.Pattern;
 import org.apache.commons.io.IOUtils;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +38,7 @@ import avenuestack.Response;
 import avenuestack.ResponseReceiver;
 import avenuestack.impl.avenue.AvenueCodec;
 import avenuestack.impl.avenue.AvenueData;
-import avenuestack.impl.avenue.ByteBufferWithReturnCode;
+import avenuestack.impl.avenue.BufferWithReturnCode;
 import avenuestack.impl.avenue.MapWithReturnCode;
 import avenuestack.impl.avenue.TlvCodec;
 import avenuestack.impl.avenue.TlvCodec4Xhead;
@@ -51,7 +52,7 @@ public class AvenueStackImpl implements AvenueStack {
 	
 	static String CLASSPATH_PREFIX = "classpath:";
 	static HashMap<String,Object> EMPTY_MAP = new HashMap<String,Object>();
-	static ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
+	static ChannelBuffer EMPTY_BUFFER = ChannelBuffers.buffer(0);
 
     int threadNum = 1;
     int queueSize = 10000;
@@ -359,7 +360,9 @@ public class AvenueStackImpl implements AvenueStack {
 	
 	RawRequestResponseInfo genRawReqResInfo(RawRequest req,int code){
 		AvenueData data = new AvenueData(
-            AvenueCodec.TYPE_RESPONSE,req.data.serviceId,req.data.msgId,req.data.sequence,
+            AvenueCodec.TYPE_RESPONSE,
+            req.data.version,
+            req.data.serviceId,req.data.msgId,req.data.sequence,
             0,req.data.encoding,
             code,
             EMPTY_BUFFER,
@@ -475,7 +478,7 @@ public class AvenueStackImpl implements AvenueStack {
             return;
         }
 
-        ByteBufferWithReturnCode d = tlvCodec.encodeResponse(req.getMsgId(),body,req.getEncoding());
+        BufferWithReturnCode d = tlvCodec.encodeResponse(req.getMsgId(),body,req.getEncoding());
         int errorCode = code;
         
         Response res = new Response(code,body,req);
@@ -487,8 +490,12 @@ public class AvenueStackImpl implements AvenueStack {
             info.res.setCode(d.ec);
         }
 
+        int version = req.getVersion();
+        if( version == 0 ) version = tlvCodec.version;
         AvenueData data = new AvenueData(
-            AvenueCodec.TYPE_RESPONSE,req.getServiceId(),req.getMsgId(),req.getSequence(),
+            AvenueCodec.TYPE_RESPONSE,
+            version,
+            req.getServiceId(),req.getMsgId(),req.getSequence(),
             0,req.getEncoding(),
             errorCode,
             EMPTY_BUFFER,

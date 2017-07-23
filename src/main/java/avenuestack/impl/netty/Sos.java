@@ -6,9 +6,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.nio.ByteBuffer;
 
 import org.dom4j.Element;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,16 +18,18 @@ import avenuestack.Response;
 import avenuestack.ErrorCodes;
 import avenuestack.impl.avenue.AvenueCodec;
 import avenuestack.impl.avenue.AvenueData;
-import avenuestack.impl.avenue.ByteBufferWithReturnCode;
+import avenuestack.impl.avenue.BufferWithReturnCode;
 import avenuestack.impl.avenue.MapWithReturnCode;
 import avenuestack.impl.avenue.TlvCodec;
 import avenuestack.impl.avenue.TlvCodec4Xhead;
 import avenuestack.impl.avenue.TlvCodecs;
+import avenuestack.impl.avenue.Xhead;
 import avenuestack.impl.util.ArrayHelper;
 import avenuestack.impl.util.NamedThreadFactory;
 import avenuestack.impl.util.QuickTimer;
 import avenuestack.impl.util.QuickTimerEngine;
 import avenuestack.impl.util.RequestIdGenerator;
+import avenuestack.impl.util.TypeSafe;
 import avenuestack.impl.util.QuickTimerFunction;
 
 import java.util.concurrent.locks.ReentrantLock;
@@ -38,7 +41,7 @@ public class Sos implements Sos4Netty,Actor {
 	AvenueStackImpl router;
 	int port;
 	
-	ByteBuffer EMPTY_BUFFER = ByteBuffer.allocate(0);
+	ChannelBuffer EMPTY_BUFFER = ChannelBuffers.buffer(0);
 	NettyServer nettyServer;
 
     // AvenueCodec converter = new AvenueCodec();
@@ -86,18 +89,6 @@ public class Sos implements Sos4Netty,Actor {
 		init();
 	}
 
-    boolean isTrue(String s) {
-        return s.equals("1") ||
-       		s.equals("t") ||
-       		s.equals("T") ||
-       		s.equals("true") ||
-       		s.equals("TRUE") ||
-       		s.equals("y") ||
-       		s.equals("Y") ||
-       		s.equals("yes") ||
-       		s.equals("YES"); 
-    }
-
     void init() {
 
         codecs = router.codecs();
@@ -127,7 +118,7 @@ public class Sos implements Sos4Netty,Actor {
             if( !s.equals("") ) idleTimeoutMillis = Integer.parseInt(s);
 
             s = cfgNode.attributeValue("isEncrypted","");
-            if( !s.equals("") ) isEncrypted = isTrue(s);
+            if( !s.equals("") ) isEncrypted = TypeSafe.isTrue(s);
 
             s = cfgNode.attributeValue("shakeHandsServiceIdMsgId","");
             if( !s.equals("") ) shakeHandsServiceIdMsgId = s;
@@ -151,17 +142,17 @@ public class Sos implements Sos4Netty,Actor {
 	        } 
 	
 	        s = cfgNode.attributeValue("pushToIpPort","");
-	        if( !s.equals("") ) pushToIpPort = isTrue(s);
+	        if( !s.equals("") ) pushToIpPort = TypeSafe.isTrue(s);
 	
 	        s = cfgNode.attributeValue("pushToIp","");
-	        if( !s.equals("") ) pushToIp = isTrue(s);
+	        if( !s.equals("") ) pushToIp = TypeSafe.isTrue(s);
 	
 	        s = cfgNode.attributeValue("pushToAny","");
-	        if( !s.equals("") ) pushToAny = isTrue(s);
+	        if( !s.equals("") ) pushToAny = TypeSafe.isTrue(s);
 	
 	        s = cfgNode.attributeValue("isSps","");
 	        if( !s.equals("") ) { 
-	            isSps = isTrue(s);
+	            isSps = TypeSafe.isTrue(s);
 	            router.parameters.put("isSps",isSps ? "1" : "0");
 	        }
 	
@@ -349,20 +340,20 @@ public class Sos implements Sos4Netty,Actor {
         if( spsDisconnectNotifyTo.equals("0:0") ) return;
         int sequence = generateSequence();
         String[] notifyInfo = spsDisconnectNotifyTo.split(":");
+        int version = codecs.version(Integer.parseInt(notifyInfo[0]));
         AvenueData data = new AvenueData(
             AvenueCodec.TYPE_REQUEST,
+            version,
             Integer.parseInt(notifyInfo[0]),
             Integer.parseInt(notifyInfo[1]),
             sequence,
             0,
             1,
             0,
-            EMPTY_BUFFER, EMPTY_BUFFER );
+            ChannelBuffers.dynamicBuffer(128), EMPTY_BUFFER );
 
-        try {
-            data.xhead = TlvCodec4Xhead.appendGsInfo(data.xhead,parseRemoteAddr(connId),isSps);
-        } catch(Exception e) {
-        }
+        TlvCodec4Xhead.appendAddr(data.xhead, parseRemoteAddr(connId), isSps, version);
+
         String requestId = "SOS"+RequestIdGenerator.nextId();
         RawRequest rr = new RawRequest(requestId, data, connId, this);
         receive(rr);
@@ -593,6 +584,7 @@ public class Sos implements Sos4Netty,Actor {
                 } else {
                 	RawRequest req = (RawRequest)saved.data;
                 	AvenueData newdata = new AvenueData( AvenueCodec.TYPE_RESPONSE,
+                		req.data.version,
                         req.data.serviceId,
                         req.data.msgId,
                         req.data.sequence,
@@ -625,6 +617,7 @@ public class Sos implements Sos4Netty,Actor {
 
     RawResponse createErrorResponse(int code,RawRequest req) {
     	AvenueData data = new AvenueData( AvenueCodec.TYPE_RESPONSE,
+    		req.data.version,
             req.data.serviceId,
             req.data.msgId,
             req.data.sequence,
@@ -653,8 +646,8 @@ public class Sos implements Sos4Netty,Actor {
 
         int sequence = generateSequence();
 
-        ByteBuffer xhead = TlvCodec4Xhead.encode(req.getServiceId(), req.getXhead());
-        ByteBufferWithReturnCode ret = tlvCodec.encodeRequest(req.getMsgId(),req.getBody(),req.getEncoding());
+        ChannelBuffer xhead = TlvCodec4Xhead.encode(req.getServiceId(), req.getXhead(),tlvCodec.version);
+        BufferWithReturnCode ret = tlvCodec.encodeRequest(req.getMsgId(),req.getBody(),req.getEncoding());
         if( ret.ec != 0 ) {
             log.error("encode request error, serviceId="+req.getServiceId()+", msgId="+req.getMsgId());
 
@@ -665,6 +658,7 @@ public class Sos implements Sos4Netty,Actor {
 
         AvenueData data = new AvenueData(
             AvenueCodec.TYPE_REQUEST,
+            tlvCodec.version,
             req.getServiceId(),
             req.getMsgId(),
             sequence,
@@ -673,14 +667,14 @@ public class Sos implements Sos4Netty,Actor {
             0,
             xhead, ret.bb );
 
-        String connId = selectConnId(req.getToAddr(),(String)req.getXhead().get(AvenueCodec.KEY_SOC_ID));
+        String connId = selectConnId(req.getToAddr(),(String)req.getXhead().get(Xhead.KEY_SOC_ID));
         if( connId == null || connId.equals("") ) {
         	Response res = createErrorResponse(ErrorCodes.NETWORK_ERROR,req);
             router.receiveResponse(new RequestResponseInfo(req,res));
             return;
         }
 
-        ByteBuffer bb = encode(data,connId);
+        ChannelBuffer bb = encode(data,connId);
 
         QuickTimer t = qte.newTimer(timeout,sequence);
         dataMap.put(sequence,new CacheData(false,req,t));
@@ -702,7 +696,7 @@ public class Sos implements Sos4Netty,Actor {
 
         HashMap<String,Object> xhead = TlvCodec4Xhead.decode(req.data.serviceId, req.data.xhead);
 
-        String connId = selectConnId(null,(String)xhead.get(AvenueCodec.KEY_SOC_ID));
+        String connId = selectConnId(null,(String)xhead.get(Xhead.KEY_SOC_ID));
         if( connId == null || connId.equals("") ) {
         	RawResponse res = createErrorResponse(ErrorCodes.NETWORK_ERROR,req);
             router.receiveResponse(new RawRequestResponseInfo(req,res));
@@ -711,6 +705,7 @@ public class Sos implements Sos4Netty,Actor {
 
         AvenueData data = new AvenueData(
             AvenueCodec.TYPE_REQUEST,
+            codecs.version(req.data.serviceId),
             req.data.serviceId,
             req.data.msgId,
             sequence,
@@ -719,7 +714,7 @@ public class Sos implements Sos4Netty,Actor {
             0,
             EMPTY_BUFFER, req.data.body );
 
-        ByteBuffer bb = encode(data,connId);
+        ChannelBuffer bb = encode(data,connId);
 
         QuickTimer t = qte.newTimer(timeout,sequence);
         dataMap.put(sequence,new CacheData(true,req,t));
@@ -740,7 +735,7 @@ public class Sos implements Sos4Netty,Actor {
         receive(new SosSendTimeout(sequence));
     }
 
-    public void receive(ByteBuffer bb,String connId)  { // sos<-req|res<-soc, 接收请求或响应
+    public void receive(ChannelBuffer bb,String connId)  { // sos<-req|res<-soc, 接收请求或响应
 
         AvenueData data = decode(bb,connId);
 
@@ -753,11 +748,8 @@ public class Sos implements Sos4Netty,Actor {
 	                }
 	
 	                // append remote addr to xhead, the last addr is always remote addr
-	                try {
-	                    data.xhead = TlvCodec4Xhead.appendGsInfo(data.xhead,parseRemoteAddr(connId),isSps);
-	                } catch(Exception e) {
-	                }
-	
+	                TlvCodec4Xhead.appendAddr(data.xhead, parseRemoteAddr(connId), isSps, data.version);
+
 	                String requestId = RequestIdGenerator.nextId();
 	                RawRequest rr = new RawRequest(requestId, data,connId, this);
 	                receive(rr);
@@ -778,10 +770,7 @@ public class Sos implements Sos4Netty,Actor {
 	                }
 	
 	                // append remote addr to xhead, the last addr is always remote addr
-	                try {
-	                    data.xhead = TlvCodec4Xhead.appendGsInfo(data.xhead,parseRemoteAddr(connId));
-	                } catch(Exception e) {
-	                }
+	                TlvCodec4Xhead.appendAddr(data.xhead, parseRemoteAddr(connId), false, data.version);
 	
 	                try {
 	                    receive(new SosSendResponse(data,connId));
@@ -804,7 +793,7 @@ public class Sos implements Sos4Netty,Actor {
 
         if( connId == null || connId.equals("") ) return;
 
-        ByteBuffer bb = encode(data,connId);
+        ChannelBuffer bb = encode(data,connId);
         nettyServer.write(connId,bb);
     }
 
@@ -814,6 +803,7 @@ public class Sos implements Sos4Netty,Actor {
 
         AvenueData res = new AvenueData (
             AvenueCodec.TYPE_RESPONSE,
+            req.version,
             req.serviceId,
             req.msgId,
             req.sequence,
@@ -823,7 +813,7 @@ public class Sos implements Sos4Netty,Actor {
             EMPTY_BUFFER,
             EMPTY_BUFFER );
 
-        ByteBuffer bb = AvenueCodec.encode(res);
+        ChannelBuffer bb = AvenueCodec.encode(res);
         nettyServer.write(connId,bb);
     }
 
@@ -833,6 +823,7 @@ public class Sos implements Sos4Netty,Actor {
 
         AvenueData res = new AvenueData (
             AvenueCodec.TYPE_RESPONSE,
+            req.version,
             req.serviceId,
             req.msgId,
             req.sequence,
@@ -842,7 +833,7 @@ public class Sos implements Sos4Netty,Actor {
             EMPTY_BUFFER,
             EMPTY_BUFFER );
 
-        ByteBuffer bb = AvenueCodec.encode(res);
+        ChannelBuffer bb = AvenueCodec.encode(res);
         nettyServer.write(connId,bb);
     }
 
@@ -852,6 +843,7 @@ public class Sos implements Sos4Netty,Actor {
 
         AvenueData res = new AvenueData (
             AvenueCodec.TYPE_RESPONSE,
+            data.version,
             0,
             0,
             data.sequence,
@@ -861,7 +853,7 @@ public class Sos implements Sos4Netty,Actor {
             EMPTY_BUFFER,
             EMPTY_BUFFER );
 
-        ByteBuffer bb = AvenueCodec.encode(res);
+        ChannelBuffer bb = AvenueCodec.encode(res);
         nettyServer.write(connId,bb);
     }
 
@@ -895,7 +887,7 @@ public class Sos implements Sos4Netty,Actor {
         return (t+ss+t).indexOf(t+s+t) >= 0;
     }
 
-    AvenueData decode(ByteBuffer bb,String connId) {
+    AvenueData decode(ChannelBuffer bb,String connId) {
     	AvenueData data = null;
         if( isEncrypted ) {
         		String key = aesKeyMap.get(connId);
@@ -917,8 +909,8 @@ public class Sos implements Sos4Netty,Actor {
         return data;
     }
 
-    ByteBuffer encode(AvenueData data,String connId) {
-    	ByteBuffer bb = null;
+    ChannelBuffer encode(AvenueData data,String connId) {
+    	ChannelBuffer bb = null;
         if( isEncrypted ) {
             String key = aesKeyMap.get(connId);
             String serviceIdMsgId = data.serviceId + ":" + data.msgId;

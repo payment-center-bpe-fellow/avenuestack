@@ -1,32 +1,17 @@
 package avenuestack.impl.netty;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantLock;
-import java.nio.ByteBuffer;
 
 import org.dom4j.Element;
-import org.jboss.netty.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import avenuestack.Request;
-import avenuestack.Response;
-import avenuestack.ErrorCodes;
-import avenuestack.impl.avenue.AvenueCodec;
-import avenuestack.impl.avenue.AvenueData;
-import avenuestack.impl.avenue.ByteBufferWithReturnCode;
-import avenuestack.impl.avenue.MapWithReturnCode;
-import avenuestack.impl.avenue.TlvCodec;
-import avenuestack.impl.avenue.TlvCodec4Xhead;
-import avenuestack.impl.avenue.TlvCodecs;
 import avenuestack.impl.util.ArrayHelper;
 import avenuestack.impl.util.NamedThreadFactory;
-import avenuestack.impl.util.QuickTimerEngine;
-import avenuestack.impl.util.RequestIdGenerator;
+import avenuestack.impl.util.TypeSafe;
 
 public class SocActor implements Actor {
 
@@ -70,10 +55,6 @@ public class SocActor implements Actor {
         socWrapper.dump();
     }
 
-    boolean isTrue(String s) {
-    	return s != null && s.equals("1") || s.equals("y") || s.equals("t") || s.equals("yes") || s.equals("true");
-    }
-    
     void init() {
 
     	serviceIds = ((Element)cfgNode.selectSingleNode("ServiceId")).getText();
@@ -121,7 +102,7 @@ public class SocActor implements Actor {
 
         boolean needShakeHands = false;
         s = cfgNode.attributeValue("needShakeHands","");
-        if( !s.equals("") ) needShakeHands = isTrue(s);
+        if( !s.equals("") ) needShakeHands = TypeSafe.isTrue(s);
 
         String shakeHandsTo = "";
         s = cfgNode.attributeValue("shakeHandsTo",""); 
@@ -131,6 +112,9 @@ public class SocActor implements Actor {
         s = cfgNode.attributeValue("shakeHandsPubKey",""); 
         if( !s.equals("") ) shakeHandsPubKey = s;
 
+        int pingVersion  = 1;
+        s = cfgNode.attributeValue("pingVersion","");
+        if( !s.equals("") ) pingVersion = Integer.parseInt(s);
         
         String firstServiceId = serviceIds.split(",")[0];
         threadFactory = new NamedThreadFactory("soc"+firstServiceId);
@@ -164,6 +148,7 @@ public class SocActor implements Actor {
         socWrapper.needShakeHands = needShakeHands;
         socWrapper.shakeHandsTo = shakeHandsTo;
         socWrapper.shakeHandsPubKey = shakeHandsPubKey;
+        socWrapper.pingVersion = pingVersion;
         socWrapper.actor = this;
         
         socWrapper.init();

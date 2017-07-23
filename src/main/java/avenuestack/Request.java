@@ -21,6 +21,8 @@ public class Request {
 	private long receivedTime; // 消息收到的时间
 	private Object sender;
 
+	private int version = 1;
+	
 	public Request() {
 	}
 	
@@ -156,6 +158,14 @@ public class Request {
 
 	public void setSender(Object sender) {
 		this.sender = sender;
+	}
+
+	public int getVersion() {
+		return version;
+	}
+
+	public void setVersion(int version) {
+		this.version = version;
 	}
 
 	

@@ -3,8 +3,8 @@ package com.sdg.avenuestack.impl.avenue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
-import java.nio.ByteBuffer;
-
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.junit.Test;
 
 import avenuestack.impl.avenue.AvenueCodec;
@@ -16,10 +16,11 @@ public class AvenueCodecTest {
 	public void testA() throws Exception {
 		AvenueData data = new AvenueData();
 		data.flag = AvenueCodec.TYPE_REQUEST;
-		data.xhead = ByteBuffer.allocate(0);
-		data.body = ByteBuffer.allocate(0);
+		data.version = 1;
+		data.xhead = ChannelBuffers.buffer(0);
+		data.body = ChannelBuffers.buffer(0);
 		
-		ByteBuffer b = AvenueCodec.encode(data);
+		ChannelBuffer b = AvenueCodec.encode(data);
 		assertNotNull(b);
 		AvenueData data2 = AvenueCodec.decode(b);
 		assertNotNull(data2);
@@ -38,6 +39,7 @@ public class AvenueCodecTest {
 	public void testB() throws Exception {
 		AvenueData data = new AvenueData();
 		data.flag = AvenueCodec.TYPE_REQUEST;
+		data.version = 1;
 		
 		data.serviceId = 100;
 		data.msgId = 101;
@@ -46,10 +48,10 @@ public class AvenueCodecTest {
 		data.encoding = 1;
 		data.code = -1029;
 		
-		data.xhead = ByteBuffer.allocate(0);
-		data.body = ByteBuffer.allocate(0);
+		data.xhead = ChannelBuffers.buffer(0);
+		data.body = ChannelBuffers.buffer(0);
 		
-		ByteBuffer b = AvenueCodec.encode(data);
+		ChannelBuffer b = AvenueCodec.encode(data);
 		assertNotNull(b);
 		AvenueData data2 = AvenueCodec.decode(b);
 		assertNotNull(data2);
@@ -68,6 +70,7 @@ public class AvenueCodecTest {
 	public void testC() throws Exception {
 		AvenueData data = new AvenueData();
 		data.flag = AvenueCodec.TYPE_RESPONSE;
+		data.version = 1;
 		
 		data.serviceId = 100;
 		data.msgId = 101;
@@ -76,10 +79,10 @@ public class AvenueCodecTest {
 		data.encoding = 1;
 		data.code = -1029;
 		
-		data.xhead = ByteBuffer.allocate(0);
-		data.body = ByteBuffer.allocate(0);
+		data.xhead = ChannelBuffers.buffer(0);
+		data.body = ChannelBuffers.buffer(0);
 		
-		ByteBuffer b = AvenueCodec.encode(data);
+		ChannelBuffer b = AvenueCodec.encode(data);
 		assertNotNull(b);
 		AvenueData data2 = AvenueCodec.decode(b);
 		assertNotNull(data2);

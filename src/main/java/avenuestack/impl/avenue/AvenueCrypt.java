@@ -1,9 +1,9 @@
 package avenuestack.impl.avenue;
 
-import java.nio.ByteBuffer;
+import org.jboss.netty.buffer.ChannelBuffer;
 
 public interface AvenueCrypt {
-	ByteBuffer encrypt(ByteBuffer b,String key);
-	ByteBuffer decrypt(ByteBuffer b,String key);
-}
+	ChannelBuffer encrypt(ChannelBuffer b, String key);
 
+	ChannelBuffer decrypt(ChannelBuffer b, String key);
+}

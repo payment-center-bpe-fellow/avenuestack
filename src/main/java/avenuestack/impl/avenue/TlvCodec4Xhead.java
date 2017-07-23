@@ -1,337 +1,288 @@
 package avenuestack.impl.avenue;
 
 import java.net.InetAddress;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import avenuestack.impl.util.TypeSafe;
+import static avenuestack.impl.avenue.TlvCodec.*;
+import static avenuestack.impl.avenue.Xhead.*;
 
 public class TlvCodec4Xhead {
-	
+
 	static Logger log = LoggerFactory.getLogger(TlvCodec4Xhead.class);
 
 	public static String SPS_ID_0 = "00000000000000000000000000000000";
 
-    public static HashMap<String,Object> decode(int serviceId,ByteBuffer buff) {
-        try {
-        	HashMap<String,Object> m = decodeInternal(serviceId,buff);
-            return m;
-        } catch(Exception e){
-                log.error("xhead decode exception, e={}",e.getMessage());
-                return new HashMap<String,Object>();
-        }
-    }
+	public static HashMap<String, Object> decode(int serviceId, ChannelBuffer buff) {
+		try {
+			return decodeInternal(serviceId, buff);
+		} catch (Exception e) {
+			log.error("xhead decode exception, e={}", e.getMessage());
+			return new HashMap<String, Object>();
+		}
+	}
 
-    public static HashMap<String,Object> decodeInternal(int serviceId, ByteBuffer buff) {
+	private static HashMap<String, Object> decodeInternal(int serviceId, ChannelBuffer buff) {
 
-        buff.position(0);
+		int limit = buff.writerIndex();
+		HashMap<String, Object> map = new HashMap<String, Object>();
 
-        int limit = buff.remaining();
+		boolean isServiceId3 = (serviceId == 3);
 
-        HashMap<String,Object> map = new HashMap<String,Object>();
+		if (isServiceId3) {
+			// only a "socId" field
+			int len = Math.min(limit, 32);
+			String value = readString(buff, len, "utf-8").trim();
+			map.put(KEY_SOC_ID, value);
+			return map;
+		}
 
-        boolean isServiceId3 = ( serviceId == 3);
+		boolean brk = false;
 
-        if( isServiceId3 ) {
-            // only a "socId" field
-            int len = 32;
-            if( limit < len ) len = limit;
-            String value = new String(buff.array(),0,len).trim();
-	        map.put(AvenueCodec.KEY_SOC_ID,value);
-	        return map;
-        }
+		while (buff.readerIndex() + 4 <= limit && !brk) {
 
-        boolean breakFlag = false;
+			int code = (int) buff.readShort();
+			int len = buff.readShort() & 0xffff;
 
-        while (buff.position() + 4 <= limit && !breakFlag) {
+			if (len < 4) {
+				if (log.isDebugEnabled()) {
+					log.debug("xhead_length_error,code=" + code + ",len=" + len + ",map=" + map + ",limit=" + limit);
+					log.debug("xhead bytes=" + hexDump(buff));
+				}
+				brk = true;
+			}
+			if (buff.readerIndex() + len - 4 > limit) {
+				if (log.isDebugEnabled()) {
+					log.debug("xhead_length_error,code=" + code + ",len=" + len + ",map=" + map + ",limit=" + limit);
+					log.debug("xhead bytes=" + hexDump(buff));
+				}
+				brk = true;
+			}
 
-            int code = (int)buff.getShort();
-            int len = buff.getShort() & 0xffff;
+			if (!brk) {
 
-            if( len < 4 ) {
-                if( log.isDebugEnabled() ) {
-                    log.debug("xhead_length_error,code="+code+",len="+len+",map="+map+",limit="+limit);
-                    log.debug("xhead bytes="+TlvCodec.toHexString(buff));
-                }
-                breakFlag = true;
-            }
-            if( buff.position() + len - 4 > limit ) {
-                if( log.isDebugEnabled() ) {
-                    log.debug("xhead_length_error,code="+code+",len="+len+",map="+map+",limit="+limit);
-                    log.debug("xhead bytes="+TlvCodec.toHexString(buff));
-                }
-                breakFlag = true;
-            }
+				XheadType tp = codeMap.get(code);
+				if (tp != null) {
+					if (tp.cls.equals("string"))
+						decodeString(buff, len, tp.name, map);
+					else if (tp.cls.equals("int"))
+						decodeInt(buff, len, tp.name, map);
+					else if (tp.cls.equals("addr"))
+						decodeAddr(buff, len, tp.name, map);
+				}
+			} else {
+				skipRead(buff, aligned(len) - 4);
+			}
+		}
 
-            if( !breakFlag ) {
-                switch(code) {
+		Object a = map.get("addrs");
+		if (a != null) {
+			ArrayList<String> aa = (ArrayList<String>) a;
+			map.put(KEY_FIRST_ADDR, aa.get(0));
+			map.put(KEY_LAST_ADDR, aa.get(aa.size() - 1));
+		}
+		return map;
+	}
 
-                    case AvenueCodec.CODE_GS_INFO:
-                        decodeGsInfo(buff,len,AvenueCodec.KEY_GS_INFOS,map);
-                        break;
-                    case AvenueCodec.CODE_SOC_ID:
-                        decodeString(buff,len,AvenueCodec.KEY_SOC_ID,map);
-                        break;
-                    case AvenueCodec.CODE_ENDPOINT_ID:
-                        decodeString(buff,len,AvenueCodec.KEY_ENDPOINT_ID,map);
-                        break;
-                    case AvenueCodec.CODE_UNIQUE_ID:
-                        decodeString(buff,len,AvenueCodec.KEY_UNIQUE_ID,map);
-                        break;
-                    case AvenueCodec.CODE_APP_ID:
-                        decodeInt(buff,len,AvenueCodec.KEY_APP_ID,map);
-                        break;
-                    case AvenueCodec.CODE_AREA_ID:
-                        decodeInt(buff,len,AvenueCodec.KEY_AREA_ID,map);
-                        break;
-                    case AvenueCodec.CODE_GROUP_ID:
-                        decodeInt(buff,len,AvenueCodec.KEY_GROUP_ID,map);
-                        break;
-                    case AvenueCodec.CODE_HOST_ID:
-                        decodeInt(buff,len,AvenueCodec.KEY_HOST_ID,map);
-                        break;
-                    case AvenueCodec.CODE_SP_ID:
-                        decodeInt(buff,len,AvenueCodec.KEY_SP_ID,map);
-                        break;
-                    case AvenueCodec.CODE_SPS_ID:
-                        decodeString(buff,len,AvenueCodec.KEY_SPS_ID,map);
-                        break;
-                    case AvenueCodec.CODE_HTTP_TYPE:
-                        decodeInt(buff,len,AvenueCodec.KEY_HTTP_TYPE,map);
-                        break;
-                    case AvenueCodec.CODE_LOG_ID:
-                        decodeString(buff,len,AvenueCodec.KEY_LOG_ID,map);
-                        break;
-                    default:
-                        int newposition = buff.position()+aligned(len)-4;
-                        if( newposition > buff.limit()) newposition = buff.limit();
-                        buff.position(newposition);
-                }
-            }
-        }
+	private static void decodeInt(ChannelBuffer buff, int len, String key, HashMap<String, Object> map) {
+		if (len != 8)
+			throw new CodecException("invalid int length");
 
-        Object a = map.get(AvenueCodec.KEY_GS_INFOS);
-        if( a != null ) {
-            ArrayList<String> aa = (ArrayList<String>)a;
-            String firstValue = aa.get(0);
-            map.put(AvenueCodec.KEY_GS_INFO_FIRST,firstValue);
-            String lastValue = aa.get(aa.size()-1);
-            map.put(AvenueCodec.KEY_GS_INFO_LAST,lastValue);
-        }
-        return map;
-    }
+		int value = buff.readInt();
+		if (!map.containsKey(key))
+			map.put(key, value);
+	}
 
-    public static void decodeInt(ByteBuffer buff,int len,String key,HashMap<String,Object> map) {
-        if( len != 8 ) return;
-        int value = buff.getInt();
-        if( !map.containsKey(key) ) 
-            map.put(key,value);
-    }
-    
-    public static void decodeString(ByteBuffer buff,int len,String key,HashMap<String,Object> map) {
-        String value = new String(buff.array(),buff.position(),len-4);
-        if( !map.containsKey(key) ) 
-            map.put(key,value);
-        int newposition = buff.position()+aligned(len)-4;
-        if( newposition > buff.limit()) newposition = buff.limit();
-        buff.position(newposition);
-    }
-    public static void decodeGsInfo(ByteBuffer buff,int len,String key,HashMap<String,Object> map)  {
-        if( len != 12 ) return;
-        byte[] ips = new byte[4];
-        buff.get(ips);
-        int port = buff.getInt();
+	private static void decodeString(ChannelBuffer buff, int len, String key, HashMap<String, Object> map) {
+		String value = readString(buff, len - 4, "utf-8");
+		if (!map.containsKey(key))
+			map.put(key, value);
+	}
 
-        try {
-	        String ipstr = InetAddress.getByAddress(ips).getHostAddress();
-	        String value = ipstr + ":" + port;
-	
-	        Object a = map.get(key);
-	        if( a == null ) {
-	            ArrayList<String> aa = new ArrayList<String>();
-	            aa.add(value);
-	            map.put(key,aa);
-	        } else {
-	        	ArrayList<String> aa = (ArrayList<String>)a;
-	        	aa.add(value);
-	        }
-        } catch(Exception e) {
-        	log.error("cannot parse ip,e="+e);
-        }
-    }
-    
+	private static void decodeAddr(ChannelBuffer buff, int len, String key, HashMap<String, Object> map) {
+		if (len != 12)
+			throw new CodecException("invalid addr length");
 
-    public static ByteBuffer encode(int serviceId, HashMap<String,Object> map) {
-    	if( map == null ) {
-    	    return ByteBuffer.allocate(0);
-    	}
-        try {
-        	ByteBuffer buff = encodeInternal(serviceId,map);
-            return buff;
-        } catch(Exception e){
-                log.error("xhead encode exception, e={}",e.getMessage());
-                // throw new RuntimeException(e.getMessage);
-                ByteBuffer buff = ByteBuffer.allocate(0);
-                return buff;
-        }
-    }
+		byte[] ips = new byte[4];
+		buff.readBytes(ips);
+		int port = buff.readInt();
 
-    public static ByteBuffer encodeInternal(int serviceId,HashMap<String,Object> map)  {
+		try {
+			String ipstr = InetAddress.getByAddress(ips).getHostAddress();
+			String value = ipstr + ":" + port;
 
-        Object socId = map.get(AvenueCodec.KEY_SOC_ID);
-        Object gsInfos = map.get(AvenueCodec.KEY_GS_INFOS);
-        Object appId = map.get(AvenueCodec.KEY_APP_ID);
-        Object areaId = map.get(AvenueCodec.KEY_AREA_ID);
-        Object groupId = map.get(AvenueCodec.KEY_GROUP_ID);
-        Object hostId= map.get(AvenueCodec.KEY_HOST_ID);
-        Object spId = map.get(AvenueCodec.KEY_SP_ID);
-        Object uniqueId = map.get(AvenueCodec.KEY_UNIQUE_ID);
-        Object endpointId = map.get(AvenueCodec.KEY_ENDPOINT_ID);
-        Object spsId = map.get(AvenueCodec.KEY_SPS_ID);
-        Object httpType = map.get(AvenueCodec.KEY_HTTP_TYPE);
-        Object logId = map.get(AvenueCodec.KEY_LOG_ID);
-        boolean isServiceId3 = ( serviceId == 3);
+			Object a = map.get(key);
+			if (a == null) {
+				ArrayList<String> aa = new ArrayList<String>();
+				aa.add(value);
+				map.put(key, aa);
+			} else {
+				ArrayList<String> aa = (ArrayList<String>) a;
+				aa.add(value);
+			}
+		} catch (Exception e) {
+			log.error("cannot parse ip,e=" + e);
+		}
+	}
 
-        if( isServiceId3 ) {
-            if( socId != null ) {
-            	ByteBuffer buff = ByteBuffer.allocate(32);
-                byte[] bs = TypeSafe.anyToString(socId).getBytes();
-                int len = bs.length > 32? 32 : bs.length;
+	public static ChannelBuffer encode(int serviceId, HashMap<String, Object> map, int version) {
+		if (map == null) {
+			return ChannelBuffers.buffer(0);
+		}
+		try {
+			return encodeInternal(serviceId, map,version);
+		} catch (Exception e) {
+			log.error("xhead encode exception, e={}", e.getMessage());
+			// throw new RuntimeException(e.getMessage);
+			return ChannelBuffers.buffer(0);
+		}
+	}
 
-                buff.put(bs,0,len);
-                for(int i = 0 ;i < 32 - len ; ++i) {
-                    buff.put((byte)0);
-                }
-                buff.flip();
-                return buff;
-            } else {
-            	ByteBuffer buff = ByteBuffer.allocate(0);
-                return buff;
-            }
-        }
+	private static ChannelBuffer encodeInternal(int serviceId, HashMap<String, Object> map, int version) {
 
-        ByteBuffer buff = ByteBuffer.allocate(240);
+		Object socId = map.get(KEY_SOC_ID);
 
-        if( gsInfos != null ) {
-            
-        	if( gsInfos instanceof List ) {
-        		List<String> infos = (List<String>)gsInfos;
-                for(String info : infos ) {
-                    encodeAddr(buff,AvenueCodec.CODE_GS_INFO, info);
-                }
-            } else {
-            	throw new CodecException("unknown gsinfos");
-            }
-        }
-        
-        if( socId != null )
-            encodeString(buff,AvenueCodec.CODE_SOC_ID,socId);
-        if( endpointId != null )
-            encodeString(buff,AvenueCodec.CODE_ENDPOINT_ID,endpointId);
-        if( uniqueId != null )
-            encodeString(buff,AvenueCodec.CODE_UNIQUE_ID,uniqueId);
-        if( appId != null )
-            encodeInt(buff,AvenueCodec.CODE_APP_ID,appId);
-        if( areaId != null )
-            encodeInt(buff,AvenueCodec.CODE_AREA_ID,areaId);
-        if( groupId != null )
-            encodeInt(buff,AvenueCodec.CODE_GROUP_ID,groupId);
-        if( hostId != null )
-            encodeInt(buff,AvenueCodec.CODE_HOST_ID,hostId);
-        if( spId != null )
-            encodeInt(buff,AvenueCodec.CODE_SP_ID,spId);
-        if( spsId != null )
-            encodeString(buff,AvenueCodec.CODE_SPS_ID,spsId);
-        if( httpType != null )
-            encodeInt(buff,AvenueCodec.CODE_HTTP_TYPE,httpType);
-        if( logId != null )
-            encodeString(buff,AvenueCodec.CODE_LOG_ID,logId);
+		boolean isServiceId3 = (serviceId == 3);
 
-        buff.flip();
-        return buff;
-    }
+		if (isServiceId3) {
+			if (socId != null) {
+				ChannelBuffer buff = ChannelBuffers.buffer(32);
+				byte[] bs = TypeSafe.anyToString(socId).getBytes();
+				int len = Math.min(bs.length, 32);
 
-    public static  ByteBuffer appendGsInfo(ByteBuffer buff,String gsInfo) {
-    	return appendGsInfo(buff,gsInfo,false);
-    }
-    
-    public static  ByteBuffer appendGsInfo(ByteBuffer buff,String gsInfo,boolean insertSpsId) {
+				buff.writeBytes(bs, 0, len);
+				for (int i = 0; i < 32 - len; ++i) {
+					buff.writeByte((byte) 0);
+				}
+				return buff;
+			} else {
+				return ChannelBuffers.buffer(0);
+			}
+		}
 
-        int newlen = aligned(buff.limit())+12;
+		int max = maxXheadLen(version);
+		ChannelBuffer buff = ChannelBuffers.dynamicBuffer(128);
 
-        if( insertSpsId ) 
-            newlen += ( aligned(gsInfo.length()) + 4 + aligned(SPS_ID_0.length())+4 );
+		for (Map.Entry<String, Object> entry : map.entrySet()) {
+			String k = entry.getKey();
+			Object v = entry.getValue();
+			if (v == null)
+				continue;
+			
+			XheadType tp = nameMap.get(k);
+			if (tp == null)
+				continue;
+			
+			if (tp.cls.equals("string"))
+				encodeString(buff, tp.code, v, max);
+			else if (tp.cls.equals("int"))
+				encodeInt(buff, tp.code, v, max);
+			else if (tp.cls.equals("addr")) {
+				if (v instanceof List) {
+					List<String> infos = (List<String>) v;
+					for (String info : infos) {
+						encodeAddr(buff, tp.code, info, max);
+					}
+				} else {
+					throw new CodecException("unknown addrs");
+				}
+			}
+		}
 
-        ByteBuffer newbuff = ByteBuffer.allocate(newlen);
-        if( insertSpsId ) {
-            newbuff.position(aligned(newbuff.position()));
-            encodeString(newbuff,AvenueCodec.CODE_SPS_ID,SPS_ID_0);
-            newbuff.position(aligned(newbuff.position()));
-            encodeString(newbuff,AvenueCodec.CODE_SOC_ID,gsInfo);
-        }
+		return buff;
+	}
 
-        newbuff.position(aligned(newbuff.position()));
-        newbuff.put(buff);
-        newbuff.position(aligned(newbuff.position()));
-        encodeAddr(newbuff,AvenueCodec.CODE_GS_INFO,gsInfo);
+	private static void encodeAddr(ChannelBuffer buff, int code, String s, int max) {
 
-        newbuff.flip();
-        return newbuff;
-    }
+		if (max - buff.writerIndex() < 12)
+			throw new CodecException("xhead is too long");
 
+		String[] ss = s.split(":");
 
-    public static  void encodeAddr(ByteBuffer buff,int code,String s) {
+		try {
+			byte[] ipBytes = InetAddress.getByName(ss[0]).getAddress();
 
-        if( buff.remaining() < 12 )
-            throw new CodecException("xhead is too long");
+			buff.writeShort((short) code);
+			buff.writeShort((short) 12);
+			buff.writeBytes(ipBytes);
+			buff.writeInt(Integer.parseInt(ss[1]));
+		} catch (Exception e) {
+			throw new CodecException("xhead InetAddress.getByName exception, e=" + e.getMessage());
+		}
+	}
 
-        String[] ss = s.split(":");
-        
-        try {
-	        byte[] ipBytes = InetAddress.getByName(ss[0]).getAddress();
-	
-	        buff.putShort((short)code);
-	        buff.putShort((short)12);
-	        buff.put(ipBytes);
-	        buff.putInt(Integer.parseInt(ss[1]));
-        } catch(Exception e) {
-        	throw new CodecException("xhead InetAddress.getByName exception, e="+e.getMessage());
-        }
-    }
+	private static void encodeInt(ChannelBuffer buff, int code, Object v, int max) {
+		if (max - buff.writerIndex() < 8)
+			throw new CodecException("xhead is too long");
+		int value = TypeSafe.anyToInt(v);
+		buff.writeShort((short) code);
+		buff.writeShort((short) 8);
+		buff.writeInt(value);
+	}
 
-    public static void encodeInt(ByteBuffer buff,int code, Object v) {
-        if( buff.remaining() < 8 )
-            throw new CodecException("xhead is too long");
-        int value = TypeSafe.anyToInt(v);
-        buff.putShort((short)code);
-        buff.putShort((short)8);
-        buff.putInt(value);
-    }
+	private static void encodeString(ChannelBuffer buff, int code, Object v, int max) {
+		String value = TypeSafe.anyToString(v);
+		if (value == null)
+			return;
+		try {
+			byte[] bytes = value.getBytes("utf-8");
+			int alignedLen = aligned(bytes.length + 4);
+			if (max - buff.writerIndex() < alignedLen)
+				throw new CodecException("xhead is too long");
+			buff.writeShort((short) code);
+			buff.writeShort((short) (bytes.length + 4));
+			buff.writeBytes(bytes);
+			writePad(buff);
+		} catch (Exception e) {
+			throw new CodecException("xhead getBytes exception, e=" + e.getMessage());
+		}
+	}
 
-    public static void encodeString(ByteBuffer buff,int code,Object v)  {
-        String value = TypeSafe.anyToString(v);
-        if( value == null ) return;
-        byte[] bytes = value.getBytes(); // don't support chinese
-        int alignedLen = aligned( bytes.length+4 );
-        if( buff.remaining() < alignedLen )
-            throw new CodecException("xhead is too long");
-        buff.putShort((short)code);
-        buff.putShort((short)(bytes.length+4));
-        buff.put(bytes);
-        buff.position(buff.position() + alignedLen - bytes.length - 4);
-    }
+	private static int maxXheadLen(int version) {
+		if (version == 1)
+			return 256 - 44;
+		else
+			return 1024 - 28;
+	}
 
-    public static int aligned(int len) {
+	public static void appendAddr(ChannelBuffer buff, String addr, boolean insertSpsId, int version) {
+		int max = maxXheadLen(version);
+		encodeAddr(buff, CODE_ADDRS, addr, max);
+		if (insertSpsId) {
+			encodeString(buff, CODE_SOC_ID, addr, max);
+			encodeString(buff, CODE_SPS_ID, SPS_ID_0, max); // 预写入一个值，调用updateSpsId再更新为实际值
+			String uuid = java.util.UUID.randomUUID().toString().replaceAll("-", "");
+			encodeString(buff, CODE_UNIQUE_ID, uuid, max);
+		}
+	}
 
-        if( (len & 0x03) != 0)
-            return ((len >> 2) + 1) << 2;
-        else
-        	return len;
-    }
-	
+	// buff是一个完整的avenue包, 必须定位到扩展包头的开始再按code查找到CODE_SPS_ID
+	public static void updateSpsId(ChannelBuffer buff, String spsId) {
+
+		int version = (int) buff.getByte(2);
+		int standardlen = version == 1 ? 44 : 28;
+		int headLen0 = buff.getByte(1) & 0xff;
+		int headLen = version == 1 ? headLen0 : headLen0 * 4;
+
+		int start = standardlen;
+		while (start + 4 <= headLen) {
+			int code = (int) buff.getShort(start);
+			int len = buff.getShort(start + 2) & 0xffff;
+			if (code != CODE_SPS_ID) {
+				start += aligned(len);
+			} else {
+				buff.setBytes(start + 4, spsId.getBytes());
+				return;
+			}
+		}
+
+	}
 }

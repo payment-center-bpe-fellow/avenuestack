@@ -8,7 +8,7 @@ import java.util.List;
 
 import org.junit.Test;
 
-import avenuestack.impl.avenue.ByteBufferWithReturnCode;
+import avenuestack.impl.avenue.BufferWithReturnCode;
 import avenuestack.impl.avenue.MapWithReturnCode;
 import avenuestack.impl.avenue.TlvCodec;
 import avenuestack.impl.avenue.TlvCodecs;
@@ -48,7 +48,7 @@ public class TlvCodecsTest {
 		
 		HashMap<String,Object> map = new HashMap<String,Object>();
 		
-		ByteBufferWithReturnCode ret = c.encodeRequest(100,map,1);
+		BufferWithReturnCode ret = c.encodeRequest(100,map,1);
 		assertNotNull(ret);
 		assertNotNull(ret.bb);
 		assertEquals(0,ret.ec);
@@ -101,7 +101,7 @@ public class TlvCodecsTest {
 		TlvCodec c = codecs.findTlvCodec(451);
 		
 		HashMap<String,Object> map = new HashMap<String,Object>();
-		ByteBufferWithReturnCode ret;
+		BufferWithReturnCode ret;
 		MapWithReturnCode ret2;
 		
 		map.clear();

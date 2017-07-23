@@ -1,6 +1,5 @@
 package avenuestack.impl.netty;
 
-import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -21,6 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.dom4j.Element;
+import org.jboss.netty.buffer.ChannelBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,8 +29,10 @@ import avenuestack.Response;
 import avenuestack.impl.avenue.MapWithReturnCode;
 import avenuestack.impl.avenue.TlvCodec;
 import avenuestack.impl.avenue.TlvCodec4Xhead;
+import avenuestack.impl.avenue.Xhead;
 import avenuestack.impl.util.ArrayHelper;
 import avenuestack.impl.util.NamedThreadFactory;
+import avenuestack.impl.util.TypeSafe;
 
 class AsyncLogActor implements Actor {
 
@@ -111,9 +113,6 @@ class AsyncLogActor implements Actor {
     	if( e == null ) return "";
     	return e.getText();
     }
-    boolean isTrue(String s) {
-    	return s != null && s.equals("1") || s.equals("y") || s.equals("t") || s.equals("yes") || s.equals("true");
-    }
     
     void init() {
     	
@@ -134,7 +133,7 @@ class AsyncLogActor implements Actor {
 
         s = parseNodeText("AsyncLogWithFieldName");
         if( !s.equals("") ) {
-            if( isTrue(s) ) asyncLogWithFieldName = true;
+            if( TypeSafe.isTrue(s) ) asyncLogWithFieldName = true;
             else asyncLogWithFieldName = false;
         }
         
@@ -414,25 +413,25 @@ class AsyncLogActor implements Actor {
         	return "";
     }
 
-    String[] parseFirstGsInfo(HashMap<String,Object> xhead) {
+    String[] parseFirstAddr(HashMap<String,Object> xhead) {
     	if( xhead == null ) return new String[]{"0","0"};
-        String s = (String)xhead.get("gsInfoFirst");
+        String s = (String)xhead.get(Xhead.KEY_FIRST_ADDR);
         if( s == null ) s = "";
         if( s.equals("") ) s = "0:0";
-        String[] gsInfo = s.split(":");
-        return gsInfo;
+        String[] addr = s.split(":");
+        return addr;
     }
-    String[] parseLastGsInfo(HashMap<String,Object> xhead) {
+    String[] parseLastAddr(HashMap<String,Object> xhead) {
     	if( xhead == null ) return new String[]{"0","0"};
-        String s = (String)xhead.get("gsInfoLast");
+        String s = (String)xhead.get(Xhead.KEY_LAST_ADDR);
         if( s == null ) s = "";
-        if( s == "" ) s = "0:0";
-        String[] gsInfo = s.split(":");
-        return gsInfo;
+        if( s.equals("") ) s = "0:0";
+        String[] addr = s.split(":");
+        return addr;
     }
 
     String getXheadRequestId(Request req) {
-        String s = (String)req.getXhead().get("uniqueId");
+        String s = (String)req.getXhead().get(Xhead.KEY_UNIQUE_ID);
         if( s == null || s.equals("") ) s = "1";
         return s;
     }
@@ -504,9 +503,9 @@ class AsyncLogActor implements Actor {
                 if( !log.isInfoEnabled() ) return;
 
                 StringBuilder buff = new StringBuilder();
-                String[] clientInfo = parseFirstGsInfo(info.req.getXhead());
-                String[] gsInfo = parseLastGsInfo(info.req.getXhead());
-                buff.append(gsInfo[0]).append(splitter).append(gsInfo[1]).append(splitter);
+                String[] clientInfo = parseFirstAddr(info.req.getXhead());
+                String[] addr = parseLastAddr(info.req.getXhead());
+                buff.append(addr[0]).append(splitter).append(addr[1]).append(splitter);
                 buff.append(clientInfo[0]).append(splitter).append(clientInfo[1]).append(splitter);
                 String xappid = (String)info.req.getXhead().get("appId");
                 if( xappid == null ) xappid = "0";
@@ -572,9 +571,9 @@ class AsyncLogActor implements Actor {
             Response res = toRes(req,rawInfo.rawRes);
 
             StringBuilder buff = new StringBuilder();
-            String[] clientInfo = parseFirstGsInfo(req.getXhead());
-            String[] gsInfo = parseLastGsInfo(req.getXhead());
-            buff.append(gsInfo[0]).append(splitter).append(gsInfo[1]).append(splitter);
+            String[] clientInfo = parseFirstAddr(req.getXhead());
+            String[] addr = parseLastAddr(req.getXhead());
+            buff.append(addr[0]).append(splitter).append(addr[1]).append(splitter);
             buff.append(clientInfo[0]).append(splitter).append(clientInfo[1]).append(splitter);
             String xappid = (String)req.getXhead().get("appId");
             if( xappid == null ) xappid = "0";
@@ -752,7 +751,7 @@ class AsyncLogActor implements Actor {
         return buff;
     }
 
-    ByteBuffer makeCopy(ByteBuffer buff) {
+    ChannelBuffer makeCopy(ChannelBuffer buff) {
         return buff.duplicate();
     }
 
@@ -760,7 +759,7 @@ class AsyncLogActor implements Actor {
 
     	TlvCodec tlvCodec = router.tlvCodecs.findTlvCodec(rawRes.data.serviceId);
         if( tlvCodec != null ) {
-        	ByteBuffer copiedBody = makeCopy(rawRes.data.body); // may be used by netty, must make a copy first
+        	ChannelBuffer copiedBody = makeCopy(rawRes.data.body); // may be used by netty, must make a copy first
             MapWithReturnCode d = tlvCodec.decodeResponse(rawRes.data.msgId,copiedBody,rawRes.data.encoding);
             int errorCode = rawRes.data.code;
             if( errorCode == 0 && d.ec != 0 ) errorCode = d.ec;

@@ -1,9 +1,9 @@
 package avenuestack.impl.netty;
 
-import java.nio.ByteBuffer;
+import org.jboss.netty.buffer.ChannelBuffer;
 
 public interface Sos4Netty {
-    void receive(ByteBuffer bb,String connId);
+    void receive(ChannelBuffer bb,String connId);
     void connected(String connId);
     void disconnected(String connId);
 }

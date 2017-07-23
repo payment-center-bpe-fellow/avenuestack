@@ -1,7 +1,6 @@
 package avenuestack.impl.netty;
 
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -11,7 +10,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -66,7 +64,7 @@ class NettyServerHandler extends IdleStateAwareChannelHandler {
         return new int[] { a,b,conns.size() } ;
     }
 
-    boolean write(String connId,ByteBuffer response) {
+    boolean write(String connId,ChannelBuffer response) {
 
         if( response == null ) return false;
 
@@ -77,8 +75,7 @@ class NettyServerHandler extends IdleStateAwareChannelHandler {
         }
 
         if( ch.isOpen() ) {
-            ChannelBuffer resBuf = ChannelBuffers.wrappedBuffer(response);
-            ch.write(resBuf);
+            ch.write(response);
             return true;
         }
 
@@ -95,11 +92,8 @@ class NettyServerHandler extends IdleStateAwareChannelHandler {
 
         ChannelBuffer buf = (ChannelBuffer)e.getMessage();
         String connId = (String)ctx.getAttachment();
-
-        ByteBuffer bb = buf.toByteBuffer();
-
         try {
-            sos.receive(bb, connId);
+            sos.receive(buf, connId);
         } catch(Exception ex) {
             log.error("sos decode error, connId="+connId,ex);
         }
@@ -252,7 +246,7 @@ class NettyServer { // with Dumpable
         log.info(s);
     }
 
-    boolean write(String connId, ByteBuffer response){
+    boolean write(String connId, ChannelBuffer response){
         return nettyServerHandler.write(connId,response);
     }
 
