@@ -224,10 +224,7 @@ public class TlvCodec {
 		String s = getAttribute(t, "type");
 		if (!s.equals(""))
 			return s;
-		if (version == 1)
-			return "systemstring";
-		else
-			return "string";
+		return "systemstring";
 	}
 
 	int getStructLen(Element t, int fieldType) {
@@ -241,9 +238,9 @@ public class TlvCodec {
 			return 8;
 		case CLS_SYSTEMSTRING:
 			return 0;
+        case CLS_VSTRING:
+            return 0;
 		case CLS_STRING:
-			if (version == 2)
-				return 0;
 			String s = getAttribute(t, "len");
 			if (s.equals(""))
 				return -1;
@@ -295,7 +292,7 @@ public class TlvCodec {
 		for (Element t : types) {
 			String name = t.attributeValue("name").toLowerCase();
 			int cls = clsToInt(t.attributeValue("class"), t.attributeValue("isbytes", ""));
-			if (cls == CLS_UNKNOWN || cls == CLS_SYSTEMSTRING)
+			if (cls == CLS_UNKNOWN || cls == CLS_SYSTEMSTRING  || cls == CLS_VSTRING)
 				throw new CodecException("class not valid, class=" + t.attributeValue("class"));
 			int code = cls != CLS_ARRAY ? Integer.parseInt(t.attributeValue("code")) : 0;
 
@@ -348,7 +345,7 @@ public class TlvCodec {
 					String fieldTypeName = getStructType(f);
 					int fieldType = clsToInt(fieldTypeName);
 
-					if (!checkStructFieldCls(version, fieldType)) {
+					if (!checkStructFieldCls(fieldType)) {
 						throw new CodecException("not supported field type,name=" + name + ",type=" + fieldType);
 					}
 
@@ -385,10 +382,6 @@ public class TlvCodec {
 
 			case CLS_OBJECT: {
 
-				if (version != 2) {
-					throw new CodecException("object not supported in version 1");
-				}
-
 				HashMap<String, String> t_keyToTypeMap = new HashMap<String, String>();
 				HashMap<String, String> t_typeToKeyMap = new HashMap<String, String>();
 				ArrayList<TlvType> t_tlvTypes = new ArrayList<TlvType>();
@@ -403,7 +396,7 @@ public class TlvCodec {
 
 					TlvType tlvType = typeNameToCodeMap.get(typeName);
 					if (tlvType == null) {
-						throw new CodecException("typeName %s not found".format(typeName));
+						throw new CodecException("typeName "+typeName+" not found");
 					}
 
 					if (t_keyToTypeMap.get(key) != null) {
@@ -447,7 +440,7 @@ public class TlvCodec {
 			}
 			default: {
 
-				if (!checkTypeCls(version, cls)) {
+				if (!checkTypeCls( cls)) {
 					throw new CodecException("not supported type,name=" + name + ",type=" + clsToName(cls));
 				}
 
@@ -965,53 +958,46 @@ public class TlvCodec {
 				break;
 			}
 			case CLS_STRING: {
-
-				if (version == 1) {
-					String value = readString(buff, len, AvenueCodec.toEncoding(encoding)).trim();
-					map.put(key, value);
-				}
-
-				if (version == 2) {
-					int t2 = buff.readShort() & 0xffff;
-					if (t2 == 0xffff) {
-						len = buff.readInt();
-						totalLen += aligned(6 + len);
-						if (totalLen > maxLen) {
-							throw new CodecException("struct_data_not_valid");
-						}
-						String value = getString(buff, len, AvenueCodec.toEncoding(encoding)).trim();
-						map.put(key, value);
-
-						skipRead(buff, aligned(6 + len) - 6);
-					} else {
-						len = t2;
-						totalLen += aligned(2 + len);
-						if (totalLen > maxLen) {
-							throw new CodecException("struct_data_not_valid");
-						}
-						String value = getString(buff, len, AvenueCodec.toEncoding(encoding)).trim();
-						map.put(key, value);
-
-						skipRead(buff, aligned(2 + len) - 2);
-					}
-				}
-				break;
+				String value = readString(buff, len, AvenueCodec.toEncoding(encoding)).trim();
+				map.put(key, value);
+                break;
 			}
-
-			case CLS_SYSTEMSTRING: {
-				if (version == 1) {
-					len = buff.readInt(); // length for system string
-					totalLen += 4;
-					totalLen += aligned(len);
+            case CLS_SYSTEMSTRING: {
+                len = buff.readInt(); // length for system string
+                totalLen += 4;
+                totalLen += aligned(len);
+                if (totalLen > maxLen) {
+                    throw new CodecException("struct_data_not_valid");
+                }
+                String value = readString(buff, len, AvenueCodec.toEncoding(encoding)).trim();
+                map.put(key, value);
+                break;
+            }			
+            case CLS_VSTRING: {
+				int t2 = buff.readShort() & 0xffff;
+				if (t2 == 0xffff) {
+					len = buff.readInt();
+					totalLen += aligned(6 + len);
 					if (totalLen > maxLen) {
 						throw new CodecException("struct_data_not_valid");
 					}
-					String value = readString(buff, len, AvenueCodec.toEncoding(encoding)).trim();
+					String value = getString(buff, len, AvenueCodec.toEncoding(encoding)).trim();
 					map.put(key, value);
+
+					skipRead(buff, aligned(6 + len) - 6);
+				} else {
+					len = t2;
+					totalLen += aligned(2 + len);
+					if (totalLen > maxLen) {
+						throw new CodecException("struct_data_not_valid");
+					}
+					String value = getString(buff, len, AvenueCodec.toEncoding(encoding)).trim();
+					map.put(key, value);
+
+					skipRead(buff, aligned(2 + len) - 2);
 				}
 				break;
 			}
-
 			default: {
 				log.error("unknown type");
 				break;
@@ -1271,72 +1257,66 @@ public class TlvCodec {
 			}
 
 			case CLS_STRING: {
+ 
+				//if (v == null)
+				//	v = "";
+				byte[] s = TypeSafe.anyToString(v).getBytes(AvenueCodec.toEncoding(encoding));
 
-				if (version == 1) {
-					if (v == null)
-						v = "";
-					byte[] s = TypeSafe.anyToString(v).getBytes(AvenueCodec.toEncoding(encoding));
-
-					int actuallen = s.length;
-					if (len == -1 || s.length == len) {
-						buff.writeBytes(s);
-					} else if (s.length < len) {
-						buff.writeBytes(s);
-						buff.writeBytes(new byte[len - s.length]);
-					} else {
-						throw new CodecException("string_too_long");
-					}
-					int alignedLen = aligned(len);
-					if (alignedLen != len) {
-						buff.writeBytes(new byte[alignedLen - len]); // pad
-																		// zeros
-					}
+				//int actuallen = s.length;
+				if (len == -1 || s.length == len) {
+					buff.writeBytes(s);
+				} else if (s.length < len) {
+					buff.writeBytes(s);
+					buff.writeBytes(new byte[len - s.length]);
+				} else {
+					throw new CodecException("string_too_long");
 				}
-				if (version == 2) {
-
-					if (v == null)
-						v = "";
-					byte[] s = TypeSafe.anyToString(v).getBytes(AvenueCodec.toEncoding(encoding));
-
-					if (s.length >= 65535) { // 0xffff
-						int alignedLen = aligned(6 + s.length);
-						buff.writeShort((short) 65535);
-						buff.writeInt(TypeSafe.anyToInt(s.length));
-						buff.writeBytes(s);
-						if (alignedLen - s.length - 6 > 0) {
-							buff.writeBytes(new byte[alignedLen - s.length - 6]);
-						}
-					} else {
-						int alignedLen = aligned(2 + s.length);
-						buff.writeShort((short) TypeSafe.anyToInt(s.length));
-						buff.writeBytes(s);
-						if (alignedLen - s.length - 2 > 0) {
-							buff.writeBytes(new byte[alignedLen - s.length - 2]);
-						}
-					}
+				int alignedLen = aligned(len);
+				if (alignedLen != len) {
+					buff.writeBytes(new byte[alignedLen - len]); // pad zeros
 				}
 				break;
 			}
+            case CLS_SYSTEMSTRING: {
 
-			case CLS_SYSTEMSTRING: {
+                //if (v == null)
+                  //  v = "";
+                byte[] s = TypeSafe.anyToString(v).getBytes(AvenueCodec.toEncoding(encoding));
 
-				if (version == 1) {
-					if (v == null)
-						v = "";
-					byte[] s = TypeSafe.anyToString(v).getBytes(AvenueCodec.toEncoding(encoding));
+                buff.writeInt(TypeSafe.anyToInt(s.length));
+                buff.writeBytes(s);
 
+                int alignedLen = aligned(s.length);
+                if (s.length != alignedLen) {
+                    buff.writeBytes(new byte[alignedLen - s.length]);
+                }
+                break;
+            }			
+			case CLS_VSTRING: {
+
+				//if (v == null)
+				//	v = "";
+				byte[] s = TypeSafe.anyToString(v).getBytes(AvenueCodec.toEncoding(encoding));
+
+				if (s.length >= 65535) { // 0xffff
+					int alignedLen = aligned(6 + s.length);
+					buff.writeShort((short) 65535);
 					buff.writeInt(TypeSafe.anyToInt(s.length));
 					buff.writeBytes(s);
-
-					int alignedLen = aligned(s.length);
-					if (s.length != alignedLen) {
-						buff.writeBytes(new byte[alignedLen - s.length]);
+					if (alignedLen - s.length - 6 > 0) {
+						buff.writeBytes(new byte[alignedLen - s.length - 6]);
 					}
-
+				} else {
+					int alignedLen = aligned(2 + s.length);
+					buff.writeShort((short) TypeSafe.anyToInt(s.length));
+					buff.writeBytes(s);
+					if (alignedLen - s.length - 2 > 0) {
+						buff.writeBytes(new byte[alignedLen - s.length - 2]);
+					}
 				}
+ 
 				break;
 			}
-
 			default: {
 				log.error("unknown type");
 				break;
@@ -1579,10 +1559,10 @@ public class TlvCodec {
 
 	void fastConvertStruct(TlvType tlvType, HashMap<String, Object> datamap, boolean addConvertFlag) {
 
-		if (datamap.containsKey(CONVERTED_FLAG)) {
-			datamap.remove(CONVERTED_FLAG);
-			return;
-		}
+		//if (datamap.containsKey(CONVERTED_FLAG)) {
+		//	datamap.remove(CONVERTED_FLAG);
+		//	return;
+		//}
 
 		ArrayList<String> to_be_removed = null;
 		for (String k : datamap.keySet()) {
@@ -1614,6 +1594,9 @@ public class TlvCodec {
 				case CLS_SYSTEMSTRING:
 					datamap.put(key, "");
 					break;
+                case CLS_VSTRING:
+                    datamap.put(key, "");
+                    break;
 				case CLS_INT:
 					datamap.put(key, 0);
 					break;
@@ -1634,6 +1617,10 @@ public class TlvCodec {
 					if (!(v instanceof String))
 						datamap.put(key, TypeSafe.anyToString(v));
 					break;
+                case CLS_VSTRING:
+                    if (!(v instanceof String))
+                        datamap.put(key, TypeSafe.anyToString(v));
+                    break;
 				case CLS_INT:
 					if (!(v instanceof Integer))
 						datamap.put(key, TypeSafe.anyToInt(v));
@@ -1651,9 +1638,9 @@ public class TlvCodec {
 
 		}
 
-		if (addConvertFlag) {
-			datamap.put(CONVERTED_FLAG, "1");
-		}
+		//if (addConvertFlag) {
+		//	datamap.put(CONVERTED_FLAG, "1");
+		//}
 
 	}
 
@@ -1848,6 +1835,8 @@ public class TlvCodec {
 			return TypeSafe.anyToString(v);
 		case CLS_SYSTEMSTRING:
 			return TypeSafe.anyToString(v);
+        case CLS_VSTRING:
+            return TypeSafe.anyToString(v);
 		case CLS_INT:
 			return TypeSafe.anyToInt(v);
 		case CLS_LONG:

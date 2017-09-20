@@ -464,10 +464,12 @@ class AsyncLogActor implements Actor {
                 buff.append(0).append(splitter).append(0).append(splitter);
                 buff.append(info.req.getServiceId()).append(splitter).append(info.req.getMsgId()).append(splitter);
                 buff.append(info.res.getRemoteAddr()).append(splitter);
+                Object uniqueId = info.req.getXhead().get("uniqueId");
+                if( uniqueId == null ) uniqueId = "";
+                buff.append(uniqueId);
                 buff.append(splitter).append(splitter);
 
                 TlvCodec codec = router.tlvCodecs.findTlvCodec(info.req.getServiceId());
-
                 String msgName = codec.msgIdToNameMap.get(info.req.getMsgId());
                 if( msgName == null ) msgName = "unknown";
                 String serviceNameMsgName = codec.serviceName + "." + msgName ;
@@ -520,6 +522,15 @@ class AsyncLogActor implements Actor {
                 Date d = new Date(info.req.getReceivedTime());
                 buff.append(f_tl.get().format(d)).append(splitter).append(ts).append(splitter);
                 buff.append(splitter);
+                
+                if( true ) {
+                    TlvCodec codec = router.tlvCodecs.findTlvCodec(info.req.getServiceId());
+                    String msgName = codec.msgIdToNameMap.get(info.req.getMsgId());
+                    if( msgName == null ) msgName = "unknown";
+                    String serviceNameMsgName = codec.serviceName + "." + msgName ;
+                    buff.append(serviceNameMsgName);
+                }
+                
                 buff.append(splitter);
 
                 appendIndex(buff,info.req.getServiceId(),info.req.getMsgId(),info.req.getBody(),info.res.getBody(),null) ;

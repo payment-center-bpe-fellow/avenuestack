@@ -52,8 +52,8 @@ public class TlvType {
 	public static final int CLS_OBJECTARRAY = 16;
 
 	public static final int CLS_BYTES = 21;
-	public static final int CLS_SYSTEMSTRING = 22; // used only in struct for
-													// avenue version 1
+	public static final int CLS_SYSTEMSTRING = 22;
+    public static final int CLS_VSTRING = 23;
 
 	public static final TlvType UNKNOWN = new TlvType("unknown", CLS_UNKNOWN, -1, null);
 	public static final StructDef EMPTY_STRUCTDEF = new StructDef();
@@ -100,6 +100,8 @@ public class TlvType {
 			return CLS_ARRAY;
 		if (lcls.equals("systemstring"))
 			return CLS_SYSTEMSTRING;
+        if (lcls.equals("vstring"))
+            return CLS_VSTRING;
 		return CLS_UNKNOWN;
 	}
 
@@ -123,28 +125,24 @@ public class TlvType {
 			return "array";
 		case CLS_SYSTEMSTRING:
 			return "systemstring";
+        case CLS_VSTRING:
+            return "vstring";
 		default:
 			return "unknown cls";
 		}
 	}
 
-	public static boolean checkTypeCls(int version, int tp) {
-		if (version == 1 && (tp == CLS_INT || tp == CLS_STRING || tp == CLS_BYTES))
-			return true;
-
-		if (version == 2
-				&& (tp == CLS_INT || tp == CLS_STRING || tp == CLS_LONG || tp == CLS_DOUBLE || tp == CLS_BYTES))
+	public static boolean checkTypeCls(int tp) {
+		if ( tp == CLS_INT || tp == CLS_STRING || tp == CLS_BYTES 
+		                || tp == CLS_LONG || tp == CLS_DOUBLE  )
 			return true;
 
 		return false;
 	}
 
-	public static boolean checkStructFieldCls(int version, int fieldType) {
-		if (version == 1 && (fieldType == CLS_INT || fieldType == CLS_STRING || fieldType == CLS_SYSTEMSTRING))
-			return true;
-
-		if (version == 2 && (fieldType == CLS_INT || fieldType == CLS_STRING || fieldType == CLS_LONG
-				|| fieldType == CLS_DOUBLE))
+	public static boolean checkStructFieldCls(int fieldType) {
+		if ( fieldType == CLS_INT || fieldType == CLS_STRING || fieldType == CLS_SYSTEMSTRING  || fieldType == CLS_VSTRING 
+		                || fieldType == CLS_LONG  || fieldType == CLS_DOUBLE)
 			return true;
 
 		return false;

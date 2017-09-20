@@ -1,7 +1,7 @@
 apply plugin: 'java'
 apply plugin: 'maven'
 
-version = '1.0.5'
+version = '1.0.6'
 sourceCompatibility = 1.6
 targetCompatibility = 1.6
 
@@ -36,7 +36,7 @@ uploadArchives {
     repositories {
         mavenDeployer {
             repository(url: "http://192.168.109.91:8081/nexus/content/repositories/releases/") {
-                authentication(userName: "xxx", password: "xxxx")
+                authentication(userName: "xxx", password: "xxx")
             }
             pom.version = "$version"
             pom.artifactId = "avenuestack"
