@@ -26,7 +26,7 @@ public class TlvCodec {
 
 	static HashMap<String, String> EMPTY_STRINGMAP = new HashMap<String, String>();
 	static ChannelBuffer EMPTY_BUFFER = ChannelBuffers.buffer(0);
-	static String CONVERTED_FLAG = "__converted__";
+	//static String CONVERTED_FLAG = "__converted__";
 
 	static String hexDump(ChannelBuffer buff) {
 		String s = ChannelBuffers.hexDump(buff, 0, buff.writerIndex());
@@ -224,7 +224,7 @@ public class TlvCodec {
 		String s = getAttribute(t, "type");
 		if (!s.equals(""))
 			return s;
-		return "systemstring";
+		return "unknown";
 	}
 
 	int getStructLen(Element t, int fieldType) {
