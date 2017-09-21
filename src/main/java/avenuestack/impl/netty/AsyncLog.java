@@ -412,7 +412,14 @@ class AsyncLogActor implements Actor {
         else
         	return "";
     }
-
+    
+    String parseUniqueId(HashMap<String,Object> xhead) {
+        if( xhead == null ) return "";
+        String s = (String)xhead.get(Xhead.KEY_UNIQUE_ID);
+        if( s == null ) return "";
+        return s;        
+    }
+    
     String[] parseFirstAddr(HashMap<String,Object> xhead) {
     	if( xhead == null ) return new String[]{"0","0"};
         String s = (String)xhead.get(Xhead.KEY_FIRST_ADDR);
@@ -464,9 +471,7 @@ class AsyncLogActor implements Actor {
                 buff.append(0).append(splitter).append(0).append(splitter);
                 buff.append(info.req.getServiceId()).append(splitter).append(info.req.getMsgId()).append(splitter);
                 buff.append(info.res.getRemoteAddr()).append(splitter);
-                Object uniqueId = info.req.getXhead().get("uniqueId");
-                if( uniqueId == null ) uniqueId = "";
-                buff.append(uniqueId);
+                buff.append(parseUniqueId(info.req.getXhead()));
                 buff.append(splitter).append(splitter);
 
                 TlvCodec codec = router.tlvCodecs.findTlvCodec(info.req.getServiceId());
