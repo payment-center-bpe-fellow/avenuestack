@@ -313,7 +313,7 @@ public class EtcdPlugin {
             if( !addrs.equals("") ) {
                 saveAddrsToFile(serviceId,addrs);
                 String oldAddrs = addrsMap.get(serviceId);
-                if( oldAddrs == null || oldAddrs.equals(addrs) ) {
+                if( oldAddrs == null || !oldAddrs.equals(addrs) ) {
                     addrsMap.put(serviceId,addrs);
                     reconfig(serviceId,addrs);
                 }

@@ -331,9 +331,9 @@ public class NettyClient { // with Dumpable
         bootstrap.setOption("connectTimeoutMillis", connectTimeout);
 
         if( reuseAddress )
-            bootstrap.setOption("reuserAddress", true);
+            bootstrap.setOption("reuseAddress", true);
         else
-            bootstrap.setOption("reuserAddress", false);
+            bootstrap.setOption("reuseAddress", false);
 
 
         for( int connidx = 0 ; connidx < connSizePerAddr; ++connidx ) 
