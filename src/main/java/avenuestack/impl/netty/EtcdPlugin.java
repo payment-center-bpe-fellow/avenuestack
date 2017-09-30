@@ -174,7 +174,7 @@ public class EtcdPlugin {
         	String discoverFor = entry.getValue();
         	
             String addrs = getEtcdAddrs(profile,discoverFor);
-            if( !addrs.equals("") ) {
+            if( !addrs.equals("error") ) {
                 addrsMap.put(serviceId,addrs);
                 saveAddrsToFile(serviceId,addrs);
             } else {
@@ -310,7 +310,7 @@ public class EtcdPlugin {
         	String discoverFor = entry.getValue();
         	
             String addrs = getEtcdAddrs(profile,discoverFor);
-            if( !addrs.equals("") ) {
+            if( !addrs.equals("error") ) {
                 saveAddrsToFile(serviceId,addrs);
                 String oldAddrs = addrsMap.get(serviceId);
                 if( oldAddrs == null || !oldAddrs.equals(addrs) ) {
@@ -377,10 +377,10 @@ public class EtcdPlugin {
             log.info("etcd req: path="+path+" res: errorCode="+ecc.errorCode+",content="+ecc.content);
         }
 
-        if(ecc.errorCode!=0) return "";
+        if(ecc.errorCode!=0) return "error";
         Map<String,Object> m = JsonCodec.parseObjectNotNull(ecc.content);
-        if( m.size() == 0 ) return "";
-        if( m.containsKey("errorCode") || !"get".equals(m.get("action")) ) return "";
+        if( m.size() == 0 ) return "error";
+        if( m.containsKey("errorCode") || !"get".equals(m.get("action")) ) return "error";
 
         Map node = (Map)m.get("node");
         if( node == null || node.size() == 0 ) return "";
