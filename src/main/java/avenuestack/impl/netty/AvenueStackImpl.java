@@ -21,6 +21,7 @@ import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
@@ -213,6 +214,7 @@ public class AvenueStackImpl implements AvenueStack {
 
     	List<String> lines = null;
 		if( configXml.startsWith(CLASSPATH_PREFIX)) {
+
 			InputStream in = AvenueStackImpl.class.getResourceAsStream(configXml.substring(CLASSPATH_PREFIX.length()));
 			lines = IOUtils.readLines(in, "UTF-8");
 			in.close();

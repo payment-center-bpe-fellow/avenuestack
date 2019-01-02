@@ -2,11 +2,7 @@ package com.sdg.avenuestack.impl.netty;
 
 import java.util.HashMap;
 
-import avenuestack.AvenueStack;
-import avenuestack.Request;
-import avenuestack.RequestReceiver;
-import avenuestack.Response;
-import avenuestack.ResponseReceiver;
+import avenuestack.*;
 import avenuestack.impl.netty.AvenueStackImpl4Spring;
 
 class AvenueHandler implements RequestReceiver,ResponseReceiver {
@@ -43,12 +39,12 @@ public class AvenueStackTest {
 		
 		System.out.println("avenuestack started");
 		
-		/*
+
 		AvenueHandler handler = new AvenueHandler();
 		handler.avenueStack = a;
 		a.setRequestReceiver(handler);
 		a.start();
-		
+
 		HashMap<String,Object> body = new HashMap<String,Object>();
 		body.put("cur_source", 1);
 		body.put("cur_userid", "1001");
@@ -56,8 +52,8 @@ public class AvenueStackTest {
 		body.put("cur_proj_id", 413);
 		Request req = RequestHelper.newRequest("configservice.group_list", body);
 		a.sendRequest(req, 3000, handler);
-		
-		*/
+
+
 		Thread.sleep(60000);
 		
 		a.closeReadChannel();
