@@ -21,6 +21,7 @@ import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import avenuestack.impl.avenue.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.dom4j.Element;
@@ -37,13 +38,6 @@ import avenuestack.RequestHelper;
 import avenuestack.RequestReceiver;
 import avenuestack.Response;
 import avenuestack.ResponseReceiver;
-import avenuestack.impl.avenue.AvenueCodec;
-import avenuestack.impl.avenue.AvenueData;
-import avenuestack.impl.avenue.BufferWithReturnCode;
-import avenuestack.impl.avenue.MapWithReturnCode;
-import avenuestack.impl.avenue.TlvCodec;
-import avenuestack.impl.avenue.TlvCodec4Xhead;
-import avenuestack.impl.avenue.TlvCodecs;
 import avenuestack.impl.util.NamedThreadFactory;
 import avenuestack.impl.util.RequestIdGenerator;
 
@@ -503,7 +497,9 @@ public class AvenueStackImpl implements AvenueStack {
 	}
 	
 	public void sendRequest(Request req,int timeout,ResponseReceiver resrcv) {
-		req.setRequestId(RequestIdGenerator.nextId());
+//		req.setRequestId(RequestIdGenerator.nextId());
+        String requestId = req.getRequestId() == null ? RequestIdGenerator.nextId() : req.getRequestId();
+        req.setRequestId(requestId);
 		if(req.getXhead() == null ) req.setXhead(EMPTY_MAP);
 		if(req.getBody() == null ) req.setBody(EMPTY_MAP);
 		Actor actor = actorMap.get(String.valueOf(req.getServiceId()));
@@ -514,6 +510,10 @@ public class AvenueStackImpl implements AvenueStack {
 			asyncLogActor.receive(info);
 			return;
 		}
+		Object uniqueId = req.getXhead().get(Xhead.KEY_UNIQUE_ID);
+		//重新设置TLV的扩展包头
+		req.getXhead().put(Xhead.KEY_UNIQUE_ID, uniqueId == null ? requestId: uniqueId);
+
 		req.setSender(resrcv);
 		actor.receive(new RequestWithTimeout(req,timeout));
 	}
