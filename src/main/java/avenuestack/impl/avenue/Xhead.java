@@ -21,12 +21,15 @@ public class Xhead {
     public final static String KEY_UNIQUE_ID = "uniqueId";
     public final static String KEY_SPS_ID = "spsId";
     public final static String KEY_HTTP_TYPE = "httpType";
+    public final static String KEY_BUSINESS_TYPE = "businessType";
 
     public final static int CODE_SOC_ID = 1;
     public final static int CODE_ADDRS = 2;
     public final static int CODE_UNIQUE_ID = 9;
     public final static int CODE_SPS_ID = 11;
     public final static int CODE_HTTP_TYPE = 12;
+
+    public final static int CODE_BUSINESS_TYPE = 14;
 
     public final static String KEY_FIRST_ADDR = "firstAddr";
     public final static String KEY_LAST_ADDR = "lastAddr";
@@ -52,6 +55,7 @@ public class Xhead {
         add(CODE_SPS_ID, KEY_SPS_ID, "string"); // 11 
         add(CODE_HTTP_TYPE, KEY_HTTP_TYPE, "int"); // 12
         add(13, "logId", "string");
+        add(CODE_BUSINESS_TYPE, KEY_BUSINESS_TYPE, "string");//14
     }
 
     static void add(int code,String name,String tp) {

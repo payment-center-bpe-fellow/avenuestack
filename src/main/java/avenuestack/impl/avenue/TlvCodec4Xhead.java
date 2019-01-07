@@ -133,6 +133,13 @@ public class TlvCodec4Xhead {
 		}
 	}
 
+	/**
+	 * 构造tlv编码
+	 * @param serviceId
+	 * @param map
+	 * @param version
+	 * @return
+	 */
 	public static ChannelBuffer encode(int serviceId, HashMap<String, Object> map, int version) {
 		if (map == null) {
 			return ChannelBuffers.buffer(0);
@@ -168,7 +175,7 @@ public class TlvCodec4Xhead {
 			}
 		}
 
-		int max = maxXheadLen(version);
+		int max = maxXheadLen(version);// version1:212  其他:996
 		ChannelBuffer buff = ChannelBuffers.dynamicBuffer(128);
 
 		for (Map.Entry<String, Object> entry : map.entrySet()) {
@@ -228,6 +235,13 @@ public class TlvCodec4Xhead {
 		buff.writeInt(value);
 	}
 
+	/**
+	 * 将string类型编码
+	 * @param buff
+	 * @param code
+	 * @param v
+	 * @param max 最大长度由tlv版本决定，version1:212 其他996
+	 */
 	private static void encodeString(ChannelBuffer buff, int code, Object v, int max) {
 		String value = TypeSafe.anyToString(v);
 		if (value == null)
