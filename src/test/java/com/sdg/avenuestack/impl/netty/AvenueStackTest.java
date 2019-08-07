@@ -1,9 +1,9 @@
 package com.sdg.avenuestack.impl.netty;
 
-import java.util.HashMap;
-
 import avenuestack.*;
 import avenuestack.impl.netty.AvenueStackImpl4Spring;
+
+import java.util.HashMap;
 
 class AvenueHandler implements RequestReceiver,ResponseReceiver {
 	
@@ -20,6 +20,7 @@ class AvenueHandler implements RequestReceiver,ResponseReceiver {
 		avenueStack.sendResponse(0, body, req);		
 	}
 	public void receiveResponse(Request req,Response res){
+
 		System.out.println("async req:"+req.toString());
 		System.out.println("async res:"+res.toString());
 	}

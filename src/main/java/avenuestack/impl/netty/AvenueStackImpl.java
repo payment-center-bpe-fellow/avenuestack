@@ -1,5 +1,18 @@
 package avenuestack.impl.netty;
 
+import avenuestack.*;
+import avenuestack.impl.avenue.*;
+import avenuestack.impl.util.NamedThreadFactory;
+import avenuestack.impl.util.RequestIdGenerator;
+import org.apache.commons.io.IOUtils;
+import org.dom4j.Element;
+import org.dom4j.io.SAXReader;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.io.Resource;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -8,11 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
@@ -20,26 +29,6 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import avenuestack.impl.avenue.*;
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
-import org.dom4j.Element;
-import org.dom4j.io.SAXReader;
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import avenuestack.AvenueStack;
-import avenuestack.ErrorCodes;
-import avenuestack.Request;
-import avenuestack.RequestHelper;
-import avenuestack.RequestReceiver;
-import avenuestack.Response;
-import avenuestack.ResponseReceiver;
-import avenuestack.impl.util.NamedThreadFactory;
-import avenuestack.impl.util.RequestIdGenerator;
 
 public class AvenueStackImpl implements AvenueStack {
 
@@ -58,6 +47,7 @@ public class AvenueStackImpl implements AvenueStack {
 
 	String avenueConfDir = "./avenue_conf";
 	ArrayList<String> avenueXmlFiles;
+	List<Resource> avenueXmlResources;
 
 	TlvCodecs tlvCodecs;
 	Element cfgXml;
@@ -92,6 +82,16 @@ public class AvenueStackImpl implements AvenueStack {
 			avenueXmlFiles = new ArrayList<String>();
 		avenueXmlFiles.add(file);
 	}
+
+	public void addAvenueXml(Resource resource){
+		avenueConfDir = null;
+		if(avenueXmlResources == null){
+			avenueXmlResources = new ArrayList<>();
+		}
+		avenueXmlResources.add(resource);
+	}
+
+
 	
 	public void init() throws Exception {
 
@@ -118,11 +118,13 @@ public class AvenueStackImpl implements AvenueStack {
 		String configXmlContent = prepareConfigFile(configXml);
 		configXmlContent = updateXml(configXmlContent);
 
-		if( avenueXmlFiles != null )
+		if (avenueXmlFiles != null) {
 			tlvCodecs = new TlvCodecs(avenueXmlFiles);
-		else if( avenueConfDir != null )
+		} else if (avenueXmlResources != null) {
+			tlvCodecs = new TlvCodecs(avenueXmlResources);
+		} else if (avenueConfDir != null) {
 			tlvCodecs = new TlvCodecs(avenueConfDir);
-		else
+		} else
 			throw new Exception("avenue xml files not specified");
 		
 		initRequestHelper();
