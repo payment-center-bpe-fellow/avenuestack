@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
 import org.jboss.netty.buffer.ChannelBuffer;
@@ -16,6 +17,8 @@ import org.slf4j.LoggerFactory;
 
 import avenuestack.ErrorCodes;
 import avenuestack.impl.util.TypeSafe;
+import org.springframework.core.io.Resource;
+
 import static avenuestack.impl.avenue.TlvType.*;
 
 public class TlvCodec {
@@ -104,6 +107,7 @@ public class TlvCodec {
 	}
 
 	String configFile;
+	Resource configFileResource;
 
 	public int serviceId;
 	public String serviceOrigName;
@@ -139,7 +143,12 @@ public class TlvCodec {
 		init();
 	}
 
-	void init() {
+    public TlvCodec(Resource configFileResource) {
+        this.configFileResource = configFileResource;
+        init();
+    }
+
+    void init() {
 		try {
 			initInternal();
 		} catch (Exception ex) {
@@ -265,11 +274,16 @@ public class TlvCodec {
 
 		SAXReader saxReader = new SAXReader();
 		saxReader.setEncoding("UTF-8");
-		InputStream in;
-		if (configFile.startsWith(CLASSPATH_PREFIX))
-			in = TlvCodec.class.getResourceAsStream(configFile.substring(CLASSPATH_PREFIX.length()));
-		else
-			in = new FileInputStream(configFile);
+		InputStream in = null;
+		if (StringUtils.isNotBlank(configFile)) {
+			if (configFile.startsWith(CLASSPATH_PREFIX))
+				in = TlvCodec.class.getResourceAsStream(configFile.substring(CLASSPATH_PREFIX.length()));
+			else
+				in = new FileInputStream(configFile);
+		}
+		if(configFileResource!=null){
+			in = configFileResource.getInputStream();
+		}
 		Element cfgXml = saxReader.read(in).getRootElement();
 		in.close();
 

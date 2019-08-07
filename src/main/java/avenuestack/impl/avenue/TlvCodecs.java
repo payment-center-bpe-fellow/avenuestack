@@ -73,6 +73,7 @@ public class TlvCodecs {
     }
 
 
+
     public void init(List<Resource> resources) {
         resources.forEach(resource -> {
             SAXReader saxReader = new SAXReader();
@@ -82,12 +83,11 @@ public class TlvCodecs {
                 in.close();
                 int id = Integer.parseInt(cfgXml.attributeValue("id"));
                 String name = cfgXml.attributeValue("name").toLowerCase();
-                TlvCodec codec = new TlvCodec(resource.getURL().getPath());
+                TlvCodec codec = new TlvCodec(resource);
                 setIdNames(cfgXml, id, name, codec);
             } catch (Exception e) {
                 e.printStackTrace();
             }
-
         });
     }
 
@@ -105,12 +105,9 @@ public class TlvCodecs {
 
                 Element cfgXml = saxReader.read(in).getRootElement();
                 in.close();
-
                 int id = Integer.parseInt(cfgXml.attributeValue("id"));
                 String name = cfgXml.attributeValue("name").toLowerCase();
-
                 TlvCodec codec = new TlvCodec(f);
-
                 setIdNames(cfgXml, id, name, codec);
 
             } catch (Exception e) {
