@@ -514,13 +514,44 @@ class AsyncLogActor implements Actor {
                 String[] addr = parseLastAddr(info.req.getXhead());
                 buff.append(addr[0]).append(splitter).append(addr[1]).append(splitter);
                 buff.append(clientInfo[0]).append(splitter).append(clientInfo[1]).append(splitter);
-                String xappid = (String)info.req.getXhead().get("appId");
-                if( xappid == null ) xappid = "0";
-                String xareaid = (String)info.req.getXhead().get("areaId");
-                if( xareaid == null ) xareaid = "0";
+
+                // appId areaId socId都是 int类型，布鲁斯冉传说强转成了String
+                Integer xappid = (Integer) info.req.getXhead().get("appId");
+//                if( xappid == null ) xappid = "0";
+                if( xappid == null ) xappid = 0;
+                Integer xareaid = (Integer)info.req.getXhead().get("areaId");
+//                if( xareaid == null ) xareaid = "0";
+                if( xareaid == null ) xareaid = 0;
                 String xsocId = (String)info.req.getXhead().get("socId");
                 if( xsocId == null ) xsocId = "";
+
+                //通过hps发过来时，head里有可能包含的内容，布鲁斯冉传说没有加
+                Integer xgroupId = (Integer) info.req.getXhead().get("groupId");
+                if (xgroupId == null) xgroupId = 0;
+                Integer xhostId = (Integer) info.req.getXhead().get("hostId");
+                if (xhostId == null) xhostId = 0;
+                Integer xspId = (Integer) info.req.getXhead().get("spId");
+                if (xspId == null) xspId = 0;
+                String xendpointId = (String) info.req.getXhead().get("endpointId");
+                if (xendpointId == null) xendpointId = "";
+                String xuniqueId = (String) info.req.getXhead().get("uniqueId");
+                if (xuniqueId == null) xuniqueId = "";
+                String xspsId = (String) info.req.getXhead().get("spsId");
+                if (xspsId == null) xspsId = "";
+                Integer xhttpType = (Integer) info.req.getXhead().get("httpType");
+                if (xhttpType == null) xhttpType = 0;
+                String xlogId = (String) info.req.getXhead().get("logId");
+                if(xlogId == null) xlogId = "";
+                String xbusinessType = (String) info.req.getXhead().get("businessType");
+                if(xbusinessType==null) xbusinessType = "";
+
                 buff.append(xappid).append(splitter).append(xareaid).append(splitter).append(xsocId).append(splitter);
+
+                //同上
+                buff.append(xgroupId).append(splitter).append(xhostId).append(splitter).append(xspId).append(splitter);
+                buff.append(xendpointId).append(splitter).append(xuniqueId).append(splitter).append(xspsId).append(splitter);
+                buff.append(xhttpType).append(splitter).append(xlogId).append(splitter).append(xbusinessType).append(splitter);
+
                 buff.append(info.req.getRequestId()).append(splitter).append(getXheadRequestId(info.req)).append(splitter);
                 buff.append(info.req.getServiceId()).append(splitter).append(info.req.getMsgId()).append(splitter);
                 buff.append("").append(splitter);
