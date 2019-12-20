@@ -514,7 +514,6 @@ class AsyncLogActor implements Actor {
                 String[] addr = parseLastAddr(info.req.getXhead());
                 buff.append(addr[0]).append(splitter).append(addr[1]).append(splitter);
                 buff.append(clientInfo[0]).append(splitter).append(clientInfo[1]).append(splitter);
-
                 // appId areaId socId都是 int类型，布鲁斯冉传说强转成了String
                 Integer xappid = (Integer) info.req.getXhead().get("appId");
 //                if( xappid == null ) xappid = "0";
