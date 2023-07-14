@@ -1,7 +1,7 @@
 apply plugin: 'java'
 apply plugin: 'maven'
 
-version = '2.1.1'
+version = '2.1.2'
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
@@ -36,12 +36,12 @@ repositories {
 uploadArchives {
     repositories {
         mavenDeployer {
-            repository(url: "http://192.168.109.91:8081/nexus/content/repositories/releases/") {
-                authentication(userName: "xxx", password: "xxx")
+            repository(url: "http://10.240.22.152:8082/nexus/content/repositories/thirdparty/") {
+                authentication(userName: "deployment", password: "1qaz2wsx")
             }
             pom.version = "$version"
-            pom.artifactId = "avenuestack"
-            pom.groupId = "avenuestack"
+            pom.artifactId = "base-avenue-stack"
+            pom.groupId = "com.sdo"
         }
     }
 }

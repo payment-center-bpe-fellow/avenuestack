@@ -211,6 +211,7 @@ public class AvenueStackImpl implements AvenueStack {
         if (configXml.startsWith(CLASSPATH_PREFIX)) {
 
             InputStream in = AvenueStackImpl.class.getResourceAsStream(configXml.substring(CLASSPATH_PREFIX.length()));
+            log.info("------avenuestack paht:{}", configXml);
             lines = IOUtils.readLines(in, "UTF-8");
             in.close();
         } else {
