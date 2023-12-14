@@ -1,37 +1,22 @@
 package avenuestack.impl.netty;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-
+import avenuestack.ErrorCodes;
+import avenuestack.Request;
+import avenuestack.Response;
+import avenuestack.impl.avenue.*;
+import avenuestack.impl.util.*;
 import org.dom4j.Element;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import avenuestack.Request;
-import avenuestack.Response;
-import avenuestack.ErrorCodes;
-import avenuestack.impl.avenue.AvenueCodec;
-import avenuestack.impl.avenue.AvenueData;
-import avenuestack.impl.avenue.BufferWithReturnCode;
-import avenuestack.impl.avenue.MapWithReturnCode;
-import avenuestack.impl.avenue.TlvCodec;
-import avenuestack.impl.avenue.TlvCodec4Xhead;
-import avenuestack.impl.avenue.TlvCodecs;
-import avenuestack.impl.avenue.Xhead;
-import avenuestack.impl.util.ArrayHelper;
-import avenuestack.impl.util.NamedThreadFactory;
-import avenuestack.impl.util.QuickTimer;
-import avenuestack.impl.util.QuickTimerEngine;
-import avenuestack.impl.util.RequestIdGenerator;
-import avenuestack.impl.util.TypeSafe;
-import avenuestack.impl.util.QuickTimerFunction;
-
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class Sos implements Sos4Netty,Actor { 
@@ -40,6 +25,7 @@ public class Sos implements Sos4Netty,Actor {
 	
 	AvenueStackImpl router;
 	int port;
+    int[] ports;
 	
 	ChannelBuffer EMPTY_BUFFER = ChannelBuffers.buffer(0);
 	NettyServer nettyServer;
@@ -88,6 +74,13 @@ public class Sos implements Sos4Netty,Actor {
 		
 		init();
 	}
+
+    public Sos(AvenueStackImpl router, int... ports) {
+        this.router = router;
+        this.ports = ports;
+
+        init();
+    }
 
     void init() {
 
@@ -177,8 +170,8 @@ public class Sos implements Sos4Netty,Actor {
 
         }
 
-        nettyServer = new NettyServer(this,
-            port,
+        nettyServer = new NettyServer(this,port,
+            ports,
             host,idleTimeoutMillis,maxPackageSize,maxConns);
 
         threadFactory = new NamedThreadFactory("serversos");

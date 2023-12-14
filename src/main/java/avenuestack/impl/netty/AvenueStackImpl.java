@@ -17,10 +17,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.StringReader;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -149,18 +146,21 @@ public class AvenueStackImpl implements AvenueStack {
         pool.prestartAllCoreThreads();
 
         asyncLogActor = new AsyncLogActor(this);
-
         Element n = (Element) cfgXml.selectSingleNode("/parameters/SapPort");
         if (n != null) {
-            int port = Integer.parseInt(n.getText());
-            if (port > 0) {
-                sos = new Sos(this, port);
-                String[] ss = sos.reverseServiceIds.split(",");
-                for (String s : ss) {
-                    if (s != null && !s.equals("0") && !s.equals(""))
-                        actorMap.put(s, sos);
-                }
+            int[] ports = Arrays.stream(n.getText().split(",")).mapToInt(Integer::parseInt).toArray();
+
+            if (ports != null && ports.length == 1 && ports[0] > 0) {
+                sos = new Sos(this, ports[0]);
+            }else {
+                sos = new Sos(this, ports);
             }
+            String[] ss = sos.reverseServiceIds.split(",");
+            for (String s : ss) {
+                if (s != null && !s.equals("0") && !s.equals(""))
+                    actorMap.put(s, sos);
+            }
+
         }
 
         List<Element> socList = cfgXml.selectNodes("/parameters/SosList");

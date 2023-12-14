@@ -1,24 +1,9 @@
 package avenuestack.impl.netty;
 
-import java.net.InetSocketAddress;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
+import avenuestack.impl.util.NamedThreadFactory;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFactory;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelPipeline;
-import org.jboss.netty.channel.ChannelPipelineFactory;
-import org.jboss.netty.channel.ChannelStateEvent;
-import org.jboss.netty.channel.Channels;
-import org.jboss.netty.channel.ExceptionEvent;
-import org.jboss.netty.channel.MessageEvent;
+import org.jboss.netty.channel.*;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.ChannelGroupFuture;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
@@ -34,7 +19,14 @@ import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import avenuestack.impl.util.NamedThreadFactory;
+import java.net.InetSocketAddress;
+import java.util.Arrays;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 class NettyServerHandler extends IdleStateAwareChannelHandler {
 
@@ -166,6 +158,7 @@ class NettyServer { // with Dumpable
     int idleTimeoutMillis = 180000;
     int maxPackageSize = 2000000;
     int maxConns = 500000;
+    int[] ports;
     
 	NettyServerHandler nettyServerHandler;
 	ChannelGroup allChannels;
@@ -190,6 +183,23 @@ class NettyServer { // with Dumpable
 		this.maxPackageSize = maxPackageSize;
 		this.maxConns = maxConns;
 	}
+
+    public NettyServer(Sos4Netty sos,int port,
+                       int[] ports, String host, int idleTimeoutMillis ,
+                       int maxPackageSize, int maxConns) {
+
+        this.sos = sos;
+        if(ports==null || ports.length == 0) {
+            this.ports = new int[1];
+            this.ports[0] = port;
+        } else {
+            this.ports = ports;
+        }
+        this.host = host;
+        this.idleTimeoutMillis = idleTimeoutMillis;
+        this.maxPackageSize = maxPackageSize;
+        this.maxConns = maxConns;
+    }
 	
     int[] stats() {
         return nettyServerHandler.stats();
@@ -232,17 +242,19 @@ class NettyServer { // with Dumpable
         bootstrap.setOption("child.receiveBufferSize", 65536);
 
         InetSocketAddress addr;
-        
-        if (host == null || "*".equals(host) ) {
-        	addr = new InetSocketAddress(port);
-        } else {
-        	addr = new InetSocketAddress(host, port);
+
+        for (int port : ports) {
+            if (host == null || "*".equals(host) ) {
+                addr = new InetSocketAddress(port);
+            } else {
+                addr = new InetSocketAddress(host, port);
+            }
+
+            Channel channel = bootstrap.bind(addr);
+            allChannels.add(channel);
         }
 
-        Channel channel = bootstrap.bind(addr);
-        allChannels.add(channel);
-
-        String s = "netty tcp server started on host(" + host + ") port(" + port + ")";
+        String s = "netty tcp server started on host(" + host + ") port(" + Arrays.toString(ports) + ")";
         log.info(s);
     }
 
