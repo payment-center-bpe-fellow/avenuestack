@@ -33,15 +33,4 @@ repositories {
      maven { url 'http://maven.aliyun.com/nexus/content/groups/public/'}
 }
 
-uploadArchives {
-    repositories {
-        mavenDeployer {
-            repository(url: "http://10.240.22.152:8082/nexus/content/repositories/thirdparty/") {
-                authentication(userName: "deployment", password: "1qaz2wsx")
-            }
-            pom.version = "$version"
-            pom.artifactId = "base-avenue-stack"
-            pom.groupId = "com.sdo"
-        }
-    }
-}
+
